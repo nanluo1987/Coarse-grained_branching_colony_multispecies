@@ -1,6 +1,6 @@
 clear
 
-%% Parameters
+% Parameters
 L      = 90;    % domain size
 totalt = 16;    % total time
 nt     = 1200;  % number of time steps
@@ -16,13 +16,14 @@ aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
 gammas = 12 * [1, 0, 1.2]*2;    % expansion efficiency of each species
 
 bN = 150;   % nutrient consumption rate
+Cm = 0.05;  % cell carrying capacity
 DN = 7;     % nutrient diffusivity
-KN = 1.2;   % half-saturation conc of nutrient-dependent growth
+KN = 1.2;   % ha
 N0 = 8;     % initial nutrient conc.
-Cmax = 0.2; % cell carrying capacity
+Cmax = 0.2;
 noiseamp = 0; % noise amplitude of branch direction
 
-% branch density & width of single-species colonies
+% branch density & width of single-strain colonies
 Densities = [0.14, 0.14, 0.2];
 Widths    = [5, 5, 20];
 
@@ -30,8 +31,7 @@ Widths    = [5, 5, 20];
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
-%% Initialization
-
+% discretization
 dt = totalt / nt;
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
@@ -39,6 +39,7 @@ y  = linspace(-L/2, L/2, ny);
 [xx, yy] = meshgrid(x, y);
 rr = sqrt(xx .^ 2 + yy .^ 2);
 
+% Initialization
 P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;  % Nutrient
