@@ -39,11 +39,11 @@ y  = linspace(-L/2, L/2, ny);
 [xx, yy] = meshgrid(x, y);
 rr = sqrt(xx .^ 2 + yy .^ 2);
 
-P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern
+P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 ouside colony)
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
-N = zeros(nx, ny) + N0;  % Nutrient
+N = zeros(nx, ny) + N0;                   % Nutrient
 
-r0  = 5;    % initial radius 
+r0  = 5;     % initial radius 
 C0  = 1.6;   % initial cell density
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
@@ -62,10 +62,10 @@ BranchDomain(:) = {rr <= r0};
 
 theta = linspace(0, 2 * pi, ntips0 + 1)' + rand * 0; 
 theta = theta(1 : ntips0);  % growth directions of every branch
-theta = theta * ones(1, 3);
+theta = theta * ones(1, 3); % one species each column
 delta = linspace(-1, 1, 201) * pi;
 
-[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN);
+[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
 
 for i = 0 : nt
     
@@ -77,7 +77,7 @@ for i = 0 : nt
     N  = N + dN * dt; 
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
     
-    for j = 1 : 3   % Index of strains
+    for j = 1 : 3   % j: index of species
         
     % -------------------------------------
     % Cell growth
@@ -89,7 +89,7 @@ for i = 0 : nt
     
     if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
     
-        dBiomass = (C{j} - C_pre{j}) * dx * dy; 
+        dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
         
         % compute the amount of biomass accumulation in each branch
         BranchDomainSum = cat(3, BranchDomain{:,j});
@@ -139,7 +139,6 @@ for i = 0 : nt
         BranchDomain(:,j) = BranchDomainNew;
         
         % Determine branch extension directions
-%         Tipx_pre = Tipx; Tipy_pre = Tipy;
         if i == 0
             Tipx(1:nn,j) = Tipx(1:nn,j) + dl .* sin(theta(1:nn,j));
             Tipy(1:nn,j) = Tipy(1:nn,j) + dl .* cos(theta(1:nn,j));
@@ -156,18 +155,6 @@ for i = 0 : nt
                 Tipy(k,j) = TipyO(k, ind(k));
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
-%             if j == 3
-%                 ki = 3; ind = 1 : 2 : nx;
-%                 subplot(1, 3, 2)
-%                 hold off; pcolor(xx(ind, ind), yy(ind, ind), N(ind, ind)); 
-%                 shading interp; axis equal;
-%                 axis([-L/2 L/2 -L/2 L/2]/5); colormap('parula'); hold on
-%                 colorbar
-%                 set(gca,'YTick',[], 'XTick',[])                
-%                 plot(TipxO(ki, :), TipyO(ki, :), '.', 'markersize', 5)
-%                 plot(Tipx(ki,j), Tipy(ki,j), '.r', 'markersize', 5)
-%                 hold on
-%             end
         end
 
         % Growth stops when approaching edges
@@ -181,8 +168,6 @@ for i = 0 : nt
             P{j}(d <= Width/2) = 1;
             BranchDomain{k,j} = BranchDomain{k,j} | (d <= Width/2);  
         end
-%         C{j}(P{j} == 1) = sum(C{j}(:)) / sum(P{j}(:)); % Make cell density uniform
-%         C_pre{j} = C{j};
 
         % relocate dBiomass 
         Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
@@ -191,7 +176,7 @@ for i = 0 : nt
         C{j} = C_pre{j} + C_relo;
         C_pre{j} = C{j};
         
-%         if i > 0 && mod(i,150) == 0
+        % Plot each species
         ind = 1 : 2 : nx;
         subplot(2, 3, j)
             hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind)); 
@@ -202,16 +187,16 @@ for i = 0 : nt
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
             title(speciesName{j})
         drawnow
-%         end
         
+        % Plot all species
         if j == 1
         Ctotal = C{1} + C{2} + C{3};
         p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
         p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
         p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
         ind = 1 : 2 : nx;
-        red = [199,61,120]; blue = [52,117,166]; green = [255,192,0];
-        subplot(2, 3, 4)
+        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166]; 
+        subplot(2, 3, 4) % total cell density
             hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind)); 
             shading interp; axis equal;
             axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
@@ -219,19 +204,19 @@ for i = 0 : nt
             set(gca,'YTick',[], 'XTick',[])
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
             title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 5)
-            ColorMap = MarkMixing_3color(red, green, blue, p1, p2, p3);
+        subplot(2, 3, 5) % show each species by color
+            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
             hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
             view([0, 0, 1]); shading interp; axis equal; box on
             axis([-L/2 L/2 -L/2 L/2]); 
             set(gca,'YTick',[], 'XTick',[])
             title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 6)
+        subplot(2, 3, 6) % line graph of cell densities
             yyaxis left; hold off
             mid = (nx + 1) / 2;
-            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', red/255, 'linewidth', 2); hold on
-            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', green/255, 'linewidth', 2);
-            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', blue/255, 'linewidth', 2);
+            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
             plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
             ylabel 'Cell density'; 
             yyaxis right; hold off
