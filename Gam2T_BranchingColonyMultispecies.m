@@ -1,6 +1,5 @@
 clear
-taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
-descriptive = ["bN100", "allaC2x", "hyperaC2x", "Cmaxpt15"];
+%taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
 for iter = 1:7 
     %% Parameters
     L      = 90;    % domain size
@@ -16,29 +15,16 @@ for iter = 1:7
     initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
     aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-    if taskID == 2
-        aCs = aCs * 2;
-    end 
-    if taskID == 3
-        aCs(3) = aCs(3) * 2;
-    end 
-    % expansion efficiency of each species
-    % swimming i, swarming 1 (wrt WT), swarming 2(wrt hyper)
-    gi = 2;
-    ga1 = 22;
-    ga2 = 20;
+    % swimming (g), swarming (h) expansion efficiency of each species
+    gs = 2*[1 1 2];
+    h1s = 22*[1 0.9 1];
+    h3s = 20*[1 0.9 1];
     
     bN = 150;   % nutrient consumption rate
-    if taskID == 1
-        bN = 100;
-    end
     DN = 7;     % nutrient diffusivity
     KN = 1.2;   % half-saturation conc of nutrient-dependent growth
     N0 = 8;     % initial nutrient conc.
     Cmax = 0.2; % cell carrying capacity
-    if taskID == 4
-        Cmax = 0.15;
-    end
     noiseamp = 0; % noise amplitude of branch direction
 
     % branch density & width of single-species colonies
@@ -123,9 +109,9 @@ for iter = 1:7
             % extension rate of each branch
             currFract = cellfun(@(x) sum(x, 'all'), C);
             currFract = currFract ./ sum(currFract);
-            gammas = [gi+ga1*currFract(1)+ga2*currFract(3), ...
-                gi+ga1*currFract(1)+ga2*currFract(3), ...
-                2*gi+ga1*currFract(1)+ga2*currFract(3)];
+            gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
+                gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
+                gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
             dl = gammas(j) * dE(1:nn,j) ./ Width;
             if i == 0; dl = 0.5; end
 
@@ -248,6 +234,6 @@ for iter = 1:7
             xlabel 'Distance from center'
         drawnow
     end
-    figname = descriptive(taskID) + "_T_" + strjoin(string(initialRatio), "");
+    figname = "Hch_90p_" + strjoin(string(initialRatio), "");
     saveas(gcf, figname, 'jpg');
 end
