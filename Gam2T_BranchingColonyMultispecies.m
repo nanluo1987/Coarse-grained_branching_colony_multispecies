@@ -1,5 +1,5 @@
 clear
-%taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
+taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
 for iter = 1:7 
     %% Parameters
     L      = 90;    % domain size
@@ -17,8 +17,9 @@ for iter = 1:7
     aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
     % swimming (g), swarming (h) expansion efficiency of each species
     gs = 2*[1 1 2];
-    h1s = 22*[1 0.9 1];
-    h3s = 20*[1 0.9 1];
+    ce = [0.1 0.3 0.5 0.7]; %cheater efficiency (frac of others)
+    h1s = 22*[1 ce(taskID) 1];
+    h3s = 20*[1 ce(taskID) 1];
     
     bN = 150;   % nutrient consumption rate
     DN = 7;     % nutrient diffusivity
@@ -234,6 +235,7 @@ for iter = 1:7
             xlabel 'Distance from center'
         drawnow
     end
-    figname = "Hch_90p_" + strjoin(string(initialRatio), "");
+    cename = ["10p_", "30p_","50p_","70p_"];
+    figname = "Hch_"+ cename(taskID) + strjoin(string(initialRatio), "");
     saveas(gcf, figname, 'jpg');
 end
