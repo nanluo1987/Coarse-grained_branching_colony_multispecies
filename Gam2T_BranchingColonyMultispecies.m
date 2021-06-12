@@ -14,14 +14,18 @@ for iter = 1:7
     initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
     initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-    aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+    aC_opts = [2 1 1 2 2 1];
+    aCs = [1, 1.2, 1] * 1.5/2 * aC_opts(taskID); % cell growth rate of each species
     % swimming (g), swarming (h) expansion efficiency of each species
     gs = 2*[1 1 2];
-    ce = [0.1 0.3 0.5 0.7]; %cheater efficiency (frac of others)
-    h1s = 22*[1 ce(taskID) 1];
-    h3s = 20*[1 ce(taskID) 1];
+    %ce = [0.1 0.3 0.5 0.7]; %cheater efficiency (frac of others)
+    h1_opts = [22 44 22 44 22 44];
+    h1s = h1_opts(taskID)*[1 0.4 1];
+    h3_opts = [20 20 40 20 40 40];
+    h3s = h3_opts(taskID)*[1 0.4 1];
     
-    bN = 150;   % nutrient consumption rate
+    bN_opts = [80 80 80 150 150 150];
+    bN = bN_opts(taskID);   % nutrient consumption rate
     DN = 7;     % nutrient diffusivity
     KN = 1.2;   % half-saturation conc of nutrient-dependent growth
     N0 = 8;     % initial nutrient conc.
@@ -235,7 +239,9 @@ for iter = 1:7
             xlabel 'Distance from center'
         drawnow
     end
-    cename = ["10p_", "30p_","50p_","70p_"];
-    figname = "Hch_"+ cename(taskID) + strjoin(string(initialRatio), "");
+    figname = "change2_"+ string(taskID) + strjoin(string(initialRatio), "");
     saveas(gcf, figname, 'jpg');
+    %save density profiles to a csv file for potential analysis. 
+    C_profiles = [C{1}(mid:end,mid) C{2}(mid:end,mid) C{3}(mid:end,mid)];
+    writematrix(C_profiles, "densities_" + figname + ".csv");
 end
