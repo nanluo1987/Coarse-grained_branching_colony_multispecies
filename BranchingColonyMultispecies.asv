@@ -114,6 +114,7 @@ for i = 0 : nt
         % extension rate of each branch  
         dl = gammas(j) * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
+        if i ~= 0 && j == 2; dl = gammas(1) * dE(1:nn,1) ./ Width; end
 
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
