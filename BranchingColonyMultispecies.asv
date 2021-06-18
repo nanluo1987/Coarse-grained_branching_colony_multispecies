@@ -145,7 +145,8 @@ for i = 0 : nt
         end
         Tipx(:,j) = TipxNew; Tipy(:,j) = TipyNew;
         theta(:,j) = thetaNew; dl = dlNew;
-        BranchDomain(:,j) = BranchDomainNew;      
+        BranchDomain(:,j) = BranchDomainNew; 
+        
         
         % Determine branch extension directions
         if i == 0
@@ -170,12 +171,13 @@ for i = 0 : nt
             % each tip's radial distance from the center
             TipR = sqrt(Tipx.^2 + Tipy.^2); 
             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-            for k = 1 : nn
-                if fastest(k, 1) == 2 % if cheater is the fastest
-                    % change the tip coordinates to the second fastest
-                    Tipx(k, 2) = Tipx(k, fastest(k, 2));
-                    Tipy(k, 2) = Tipy(k, fastest(k, 2));
-                end
+            itip = fastest == 2; itip = itip(:,1); % if cheater is the fastest
+            Tipxf2 = Tipx(:, fastest(:,2));
+            Tipyf2 = Tipx(:, fastest(:,2));
+            % change the tip coordinates to the second fastest
+            for k = 1 : ntips
+            Tipx(itip, 2) = Tipxf2(itip, :);
+            Tipy(itip, 2) = Tipyf2(itip, :);
             end
         end
         
