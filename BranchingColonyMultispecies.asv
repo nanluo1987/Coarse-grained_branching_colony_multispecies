@@ -9,11 +9,11 @@ nx     = 1001; ny = nx; % number of
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 1, 1];   % initial ratio of all species
+initialRatio = [0, 1, 1];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.2, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*2;                 % swimming motility
+aCs = [1, 1.2, 0.8] * 1.5;      % cell growth rate of each species
+gs = 2*[1 1 2]*10;                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
 h1s = 22 *[1 ce 1]*2;             % swarming motility coefficient of WT
 h3s = 20 *[1 ce 1]*2;             % swarming motility coefficient of hyperswarmer
@@ -145,8 +145,7 @@ for i = 0 : nt
         end
         Tipx(:,j) = TipxNew; Tipy(:,j) = TipyNew;
         theta(:,j) = thetaNew; dl = dlNew;
-        BranchDomain(:,j) = BranchDomainNew; 
-        
+        BranchDomain(:,j) = BranchDomainNew;      
         
         % Determine branch extension directions
         if i == 0
@@ -171,13 +170,12 @@ for i = 0 : nt
             % each tip's radial distance from the center
             TipR = sqrt(Tipx.^2 + Tipy.^2); 
             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-            itip = fastest == 2; itip = itip(:,1); % if cheater is the fastest
-            Tipxf2 = Tipx(:, fastest(:,2));
-            Tipyf2 = Tipx(:, fastest(:,2));
-            % change the tip coordinates to the second fastest
-            for k = 1 : ntips
-            Tipx(itip, 2) = Tipxf2(itip, :);
-            Tipy(itip, 2) = Tipyf2(itip, :);
+            for k = 1 : nn
+                if fastest(k, 1) == 2 % if cheater is the fastest
+                    % change the tip coordinates to the second fastest
+                    Tipx(k, 2) = Tipx(k, fastest(k, 2));
+                    Tipy(k, 2) = Tipy(k, fastest(k, 2));
+                end
             end
         end
         
