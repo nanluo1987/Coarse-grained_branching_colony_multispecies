@@ -1,19 +1,22 @@
 clear
 
+for iter = 7
+figure(1)
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
-nt     = 1200;  % number of time steps
+totalt = 4;    % total time
+dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [0, 1, 1];   % initial ratio of all species
+pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
+initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.2, 0.8] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*10;                 % swimming motility
+aCs = [1, 1.1, 1] * 1.5;      % cell growth rate of each species
+gs = 2*[1 1 2]*2;                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
 h1s = 22 *[1 ce 1]*2;             % swarming motility coefficient of WT
 h3s = 20 *[1 ce 1]*2;             % swarming motility coefficient of hyperswarmer
@@ -34,8 +37,7 @@ Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
 %% Initialization
-
-dt = totalt / nt;
+nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
 y  = linspace(-L/2, L/2, ny);
@@ -90,7 +92,7 @@ for i = 0 : nt
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
+    if mod(i, 0.1/dt) == 0 && initialFract(j) > 0
 
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
 
@@ -166,18 +168,18 @@ for i = 0 : nt
             end
         end
         
-        if j == 2 % check if cheater extends faster than the other two
-            % each tip's radial distance from the center
-            TipR = sqrt(Tipx.^2 + Tipy.^2); 
-            [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-            for k = 1 : nn
-                if fastest(k, 1) == 2 % if cheater is the fastest
-                    % change the tip coordinates to the second fastest
-                    Tipx(k, 2) = Tipx(k, fastest(k, 2));
-                    Tipy(k, 2) = Tipy(k, fastest(k, 2));
-                end
-            end
-        end
+%         if j == 2 % check if cheater extends faster than the other two
+%             % each tip's radial distance from the center
+%             TipR = sqrt(Tipx.^2 + Tipy.^2); 
+%             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
+%             for k = 1 : nn
+%                 if fastest(k, 1) == 2 % if cheater is the fastest
+%                     % change the tip coordinates to the second fastest
+%                     Tipx(k, 2) = Tipx(k, fastest(k, 2));
+%                     Tipy(k, 2) = Tipy(k, fastest(k, 2));
+%                 end
+%             end
+%         end
         
         % Growth stops when approaching edges
 %         ind = TipR > 0.85 * L/2;
@@ -208,44 +210,65 @@ for i = 0 : nt
             set(gca,'YTick',[], 'XTick',[])
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
             title(speciesName{j})
+            drawnow
+            
+        if j == 2
+        % Plot all species
+        Ctotal = C{1} + C{2} + C{3};
+        p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+        p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+        p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+        ind = 1 : 2 : nx;
+        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+        subplot(2, 3, 4) % total cell density
+            hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
+            shading interp; axis equal;
+            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+            colorbar
+            set(gca,'YTick',[], 'XTick',[])
+            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+            title(['Time = ' num2str(i * dt)])
+        subplot(2, 3, 5) % show each species by color
+            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+            hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+            view([0, 0, 1]); shading interp; axis equal; box on
+            axis([-L/2 L/2 -L/2 L/2]);
+            set(gca,'YTick',[], 'XTick',[])
+            title(['Time = ' num2str(i * dt)])
+        subplot(2, 3, 6) % line graph of cell densities
+            yyaxis left; hold off
+            mid = (nx + 1) / 2;
+            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
+            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
+            ylabel 'Cell density';
+            yyaxis right; hold off
+            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
+            xlabel 'Distance from center'
         drawnow
+        end
+        
     end
 
-    end
+    end  
+    
 
-    % Plot all species
-    Ctotal = C{1} + C{2} + C{3};
-    p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
-    p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
-    p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
-    ind = 1 : 2 : nx;
-    color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-    subplot(2, 3, 4) % total cell density
-        hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
-        shading interp; axis equal;
-        axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-        colorbar
-        set(gca,'YTick',[], 'XTick',[])
-        plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
-        title(['Time = ' num2str(i * dt)])
-    subplot(2, 3, 5) % show each species by color
-        ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-        hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-        view([0, 0, 1]); shading interp; axis equal; box on
-        axis([-L/2 L/2 -L/2 L/2]);
-        set(gca,'YTick',[], 'XTick',[])
-        title(['Time = ' num2str(i * dt)])
-    subplot(2, 3, 6) % line graph of cell densities
-        yyaxis left; hold off
-        mid = (nx + 1) / 2;
-        plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
-        plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
-        plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
-        plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
-        ylabel 'Cell density';
-        yyaxis right; hold off
-        plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
-        xlabel 'Distance from center'
-    drawnow
+end
+
+figure(2); clf
+Ctotal = C{1} + C{2} + C{3};
+p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+ind = 1 : 2 : nx;
+color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+        
+ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+view([0, 0, 1]); shading interp; axis equal;
+axis([-L/2 L/2 -L/2 L/2]);
+set(gca,'YTick',[], 'XTick',[])
+saveas(gca, "result_nolimit_4h_" + strjoin(string(initialRatio), "") + '.jpg')
 
 end

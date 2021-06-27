@@ -2,7 +2,7 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 10;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of
 
