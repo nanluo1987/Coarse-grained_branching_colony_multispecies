@@ -179,10 +179,13 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
-        Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo;
+%         Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+%         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
+%         C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
+%         C_relo = dBiomass / (dx * dy);
+%         C{j} = C_pre{j} + C_relo;
+        C_ini = zeros(size(P{j})); C_ini(P{j} == 1 & C{j} == 0) = 0.01;
+        C{j} = C{j} + C_ini;
         C_pre{j} = C{j};
 
         % Plot each species
