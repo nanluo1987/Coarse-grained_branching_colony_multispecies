@@ -2,18 +2,18 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 6;    % total time
+totalt = 4;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 1, 1];   % initial ratio of all species
+initialRatio = [1, 1, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 aCs = [1, 1.1, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*20;                 % swimming motility
+gs = 2*[1 1 2]*10;                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
 h1s = 22 *[1 ce 1]*2;             % swarming motility coefficient of WT
 h3s = 20 *[1 ce 1]*2;             % swarming motility coefficient of hyperswarmer
@@ -104,14 +104,21 @@ for i = 0 : nt
         end
 
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-        currFract = cellfun(@(x) sum(x, 'all'), C);
-        currFract = currFract ./ sum(currFract);
-        gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-            gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-            gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+%         currFract = cellfun(@(x) sum(x, 'all'), C);
+%         currFract = cellfun(@(x) sum(x, 'all'), C);
+%         currFract = currFract ./ sum(currFract);
+%         gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
+%             gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
+%             gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+        currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
+        currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
+        tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
+        tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
+        gammas = gs(j)+h1s(j)*tipFract_wt+h3s(j)*tipFract_hs;
         
         % extension rate of each branch  
-        dl = gammas(j) * dE(1:nn,j) ./ Width;
+        dl = gammas .* dE(1:nn,j) ./ Width;
+%         dl = gammas(j) * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         % Bifurcation
@@ -165,18 +172,18 @@ for i = 0 : nt
             end
         end
         
-        if j == 2 % check if cheater extends faster than the other two
-            % each tip's radial distance from the center
-            TipR = sqrt(Tipx.^2 + Tipy.^2); 
-            [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-            for k = 1 : nn
-                if fastest(k, 1) == 2 % if cheater is the fastest
-                    % change the tip coordinates to the second fastest
-                    Tipx(k, 2) = Tipx(k, fastest(k, 2));
-                    Tipy(k, 2) = Tipy(k, fastest(k, 2));
-                end
-            end
-        end
+%         if j == 2 % check if cheater extends faster than the other two
+%             % each tip's radial distance from the center
+%             TipR = sqrt(Tipx.^2 + Tipy.^2); 
+%             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
+%             for k = 1 : nn
+%                 if fastest(k, 1) == 2 % if cheater is the fastest
+%                     % change the tip coordinates to the second fastest
+%                     Tipx(k, 2) = Tipx(k, fastest(k, 2));
+%                     Tipy(k, 2) = Tipy(k, fastest(k, 2));
+%                 end
+%             end
+%         end
         
         % Growth stops when approaching edges
 %         ind = TipR > 0.85 * L/2;

@@ -15,8 +15,8 @@ pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.1, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*2;                 % swimming motility
+aCs = [1, 1.1, 1] * 1;      % cell growth rate of each species
+gs = 2*[1 1 2];                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
 h1s = 22 *[1 ce 1]*2;             % swarming motility coefficient of WT
 h3s = 20 *[1 ce 1]*2;             % swarming motility coefficient of hyperswarmer
@@ -107,14 +107,20 @@ for i = 0 : nt
         end
 
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-        currFract = cellfun(@(x) sum(x, 'all'), C);
-        currFract = currFract ./ sum(currFract);
-        gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-            gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-            gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+%         currFract = cellfun(@(x) sum(x, 'all'), C);
+%         currFract = currFract ./ sum(currFract);
+%         gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
+%             gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
+%             gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+        currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
+        currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
+        tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
+        tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
+        gammas = gs(j)+h1s(j)*tipFract_wt+h3s(j)*tipFract_hs;
         
         % extension rate of each branch  
-        dl = gammas(j) * dE(1:nn,j) ./ Width;
+%         dl = gammas(j) * dE(1:nn,j) ./ Width;
+        dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         % Bifurcation
@@ -269,6 +275,6 @@ hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(in
 view([0, 0, 1]); shading interp; axis equal;
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "result_nolimit_4h_" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "result_localmotility2_4h_" + strjoin(string(initialRatio), "") + '.jpg')
 
 end
