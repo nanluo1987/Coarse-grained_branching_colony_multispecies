@@ -1,7 +1,7 @@
 clear
-figure(1)
 
-for iter = 4
+for iter = 2
+figure(1)
 %% Parameters
 L      = 90;    % domain size
 totalt = 12;    % total time
@@ -16,7 +16,7 @@ initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 aCs = [1, 1.05, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*3;                 % swimming motility
+gs = 2*[1 1 4]*2;                 % swimming motility
 h1s = 22 *2;             % swarming motility coefficient of WT
 h3s = 20 *2;             % swarming motility coefficient of hyperswarmer
 
@@ -81,7 +81,7 @@ for i = 0 : nt
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
-    for j = 1 : 3  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
+    for j = [1, 3, 2]  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
 
     % -------------------------------------
     % Cell growth
@@ -115,7 +115,7 @@ for i = 0 : nt
         currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
         tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
         tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
-        gammas = gs(j) + h1s * tipFract_wt + h3s * tipFract_hs;
+        gammas = gs(j) + h1s *tipFract_wt+h3s*tipFract_hs;
         
         % extension rate of each branch  
 %         dl = gammas(j) * dE(1:nn,j) ./ Width;
@@ -172,6 +172,19 @@ for i = 0 : nt
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
         end
+        
+%         if j == 2 % check if cheater extends faster than the other two
+%             % each tip's radial distance from the center
+%             TipR = sqrt(Tipx.^2 + Tipy.^2); 
+%             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
+%             for k = 1 : nn
+%                 if fastest(k, 1) == 2 % if cheater is the fastest
+%                     % change the tip coordinates to the second fastest
+%                     Tipx(k, 2) = Tipx(k, fastest(k, 2));
+%                     Tipy(k, 2) = Tipy(k, fastest(k, 2));
+%                 end
+%             end
+%         end
         
         % Growth stops when approaching edges
 %         ind = TipR > 0.85 * L/2;
@@ -248,7 +261,6 @@ for i = 0 : nt
 
 end
 
-% save results
 figure(2); clf
 Ctotal = C{1} + C{2} + C{3};
 p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
@@ -256,11 +268,12 @@ p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
 p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
 ind = 1 : 2 : nx;
 color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+        
 ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
 hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-view([0, 0, 1]); shading interp; axis equal; box on
+view([0, 0, 1]); shading interp; axis equal;
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results_localmotility_" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "results\localmotility2_4h_" + strjoin(string(initialRatio), "") + '.jpg')
 
 end
