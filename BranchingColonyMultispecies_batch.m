@@ -1,7 +1,7 @@
 clear
 figure(1)
 
-for iter = 4
+for iter = 7
 %% Parameters
 L      = 90;    % domain size
 totalt = 12;    % total time
@@ -106,11 +106,6 @@ for i = 0 : nt
         end
 
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-%         currFract = cellfun(@(x) sum(x, 'all'), C);
-%         currFract = currFract ./ sum(currFract);
-%         gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-%             gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-%             gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
         currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
         currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
         tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
@@ -118,7 +113,6 @@ for i = 0 : nt
         gammas = gs(j) + h1s * tipFract_wt + h3s * tipFract_hs;
         
         % extension rate of each branch  
-%         dl = gammas(j) * dE(1:nn,j) ./ Width;
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
@@ -188,8 +182,9 @@ for i = 0 : nt
         % relocate dBiomass
         Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo;
+        frac_relo = 0.5;
+        C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
+        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
         C_pre{j} = C{j};
 
         % Plot each species
@@ -261,6 +256,6 @@ hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(in
 view([0, 0, 1]); shading interp; axis equal; box on
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results_localmotility_" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "results_localmotility_partialrelo_" + strjoin(string(initialRatio), "") + '.jpg')
 
 end
