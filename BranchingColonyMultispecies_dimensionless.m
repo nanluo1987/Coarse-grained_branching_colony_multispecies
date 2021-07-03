@@ -1,7 +1,7 @@
 clear
 
 %% Parameters
-L      = 90;    % domain size
+L      = 1;    % domain size
 totalt = 12;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of
@@ -33,6 +33,21 @@ Widths    = [5, 5, 20];
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
+ud = 90;
+vt = 1;
+N0 = N0 / KN;
+aCs = aCs;
+ps = gs * Cmax;
+q1s = h1s * Cmax;
+q3s = h3s * Cmax;
+b = Cmax*bN/KN;
+
+totalt = totalt * vt;
+dt = dt * vt;
+
+Density = Density * ud;
+Width = Width / ud;
+
 %% Initialization
 
 nt = totalt / dt;  % number of time steps
@@ -48,6 +63,9 @@ N = zeros(nx, ny) + N0;                   % Nutrient
 
 r0  = 5;     % initial radius
 C0  = 1.6;   % initial cell density
+r0 = r0 / ud;
+C0 = C0 / Cmax / ud^2;
+
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
 for j = 1 : 3
@@ -68,15 +86,15 @@ theta = theta(1 : ntips0);  % growth directions of every branch
 theta = theta * ones(1, 3); % one species each column
 delta = linspace(-1, 1, 201) * pi;
 
-[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
+[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN/ud^2); % for solving diffusion equation using ADI method
 
 for i = 0 : nt
 
     % -------------------------------------
     % Nutrient distribution
 
-    fN = N ./ (N + KN) .* (1 - (C{1} + C{2} + C{3}) / Cmax);
-    dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
+    dN = - fN * b .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
@@ -90,7 +108,7 @@ for i = 0 : nt
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
+    if mod(i, 0.2*vt/dt) == 0 && initialFract(j) > 0
 
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
 
@@ -107,13 +125,13 @@ for i = 0 : nt
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         currFract = cellfun(@(x) sum(x, 'all'), C);
         currFract = currFract ./ sum(currFract);
-        gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-            gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-            gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+        gammas = [ps(1)+q1s(1)*currFract(1)+q3s(1)*currFract(3), ...
+            ps(2)+q1s(2)*currFract(1)+q3s(2)*currFract(3), ...
+            ps(3)+q1s(3)*currFract(1)+q3s(3)*currFract(3)];
         
         % extension rate of each branch  
         dl = gammas(j) * dE(1:nn,j) ./ Width;
-        if i == 0; dl = 0.5; end
+        if i == 0; dl = 0.5/ud; end
 
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
@@ -179,7 +197,7 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo;
