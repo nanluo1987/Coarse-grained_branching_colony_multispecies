@@ -1,6 +1,8 @@
 clear
-taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
-for iter = 1:7 
+figure(1)
+%taskID = str2num(getenv('SLURM_ARRAY_TASK_ID'));
+taskID = 42; %TODO change back
+for iter = 7:7 %TODO change back to 1:7.
     %% Parameters
     L      = 90;    % domain size
     totalt = 16;    % total time
@@ -9,23 +11,44 @@ for iter = 1:7
 
     speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
     % other vectors will follow the same order
-    
+
     pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
     initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
     initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    filename = "gamt_checkcase2_r2_" + string(taskID) + "_" + strjoin(string(initialRatio), "");
 
-    aC_opts = [2 1 1 2 2 1];
-    aCs = [1, 1.2, 1] * 1.5/2 * aC_opts(taskID); % cell growth rate of each species
+    %aC_opts = [2 1 1 2 2 1];
+    aCs = [1, 1.2, 1] * 1.5/2; %* aC_opts(taskID); % cell growth rate of each species
     % swimming (g), swarming (h) expansion efficiency of each species
     gs = 2*[1 1 2];
-    %ce = [0.1 0.3 0.5 0.7]; %cheater efficiency (frac of others)
-    h1_opts = [22 44 22 44 22 44];
-    h1s = h1_opts(taskID)*[1 0.4 1];
-    h3_opts = [20 20 40 20 40 40];
-    h3s = h3_opts(taskID)*[1 0.4 1];
-    
-    bN_opts = [80 80 80 150 150 150];
-    bN = bN_opts(taskID);   % nutrient consumption rate
+%     ce = [0.1 0.3 0.5 0.7]; %cheater efficiency (frac of others)
+%     h1_opts = [22 44 22 44 22 44];
+%     h1s = h1_opts(taskID)*[1 0.4 1];
+%     h3_opts = [20 20 40 20 40 40];
+%     h3s = h3_opts(taskID)*[1 0.4 1];
+% June 18.
+%     h1wt_opts = [2 2 1 2 1 2 1 2];
+%     h3wt_opts = [2 2 2 1 2 1 2 1];
+%     h1cht_opts = [1 2 1 1 2 2 1 1];
+%     h3cht_opts = [2 1 2 2 1 1 1 1];
+%     h1s = 22*[h1wt_opts(taskID) h1cht_opts(taskID) 2];
+%     h3s = 20*[h3wt_opts(taskID) h3cht_opts(taskID) 2];
+
+% June 19.
+%     h31_opts = [1 1 1 1 1 1 0.7 0.5 0.3 0.7 1 0.7 0.7 1 1 0.7 0.7 1 0.7 0.5 0.5];
+%     h12_opts = [1.3 1.5 1.7 1 1 1 1 1 1 1.3 1.3 1 1.3 1.5 1.3 1.5 1.3 1.5 1.5 1.3 1.5];
+%     h32_opts = [1 1 1 1.3 1.5 1.7 1 1 1 1 1.3 1.3 1.3 1.3 1.5 1.3 1.5 1.5 1.5 1.3 1.5];
+%     h1s = 22*[2 h12_opts(taskID) 2];
+%     h3s = 20*[h31_opts(taskID) h32_opts(taskID) 2];
+
+%June 28
+    %ce = 1;
+    h1s = 22*[2 1 2]*2;
+    h3s = 20*[1 1 2]*2;
+
+    %bN_opts = [80 80 80 150 150 150];
+    %bN = bN_opts(taskID);   % nutrient consumption rate
+    bN = 150;
     DN = 7;     % nutrient diffusivity
     KN = 1.2;   % half-saturation conc of nutrient-dependent growth
     N0 = 8;     % initial nutrient conc.
@@ -189,59 +212,77 @@ for iter = 1:7
             C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
             C{j} = C_pre{j} + C_relo;
             C_pre{j} = C{j};
-
-            % Plot each species
-            ind = 1 : 2 : nx;
-            subplot(2, 3, j)
-                hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
-                shading interp; axis equal;
-                axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-                colorbar
-                set(gca,'YTick',[], 'XTick',[])
-                plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
-                title(speciesName{j})
-            drawnow
             end
 
         end
-        % Plot all species
-        Ctotal = C{1} + C{2} + C{3};
-        p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
-        p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
-        p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
-        ind = 1 : 2 : nx;
-        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-        subplot(2, 3, 4) % total cell density
-            hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
-            shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-            colorbar
-            set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 5) % show each species by color
-            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-            hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-            view([0, 0, 1]); shading interp; axis equal; box on
-            axis([-L/2 L/2 -L/2 L/2]);
-            set(gca,'YTick',[], 'XTick',[])
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 6) % line graph of cell densities
-            yyaxis left; hold off
-            mid = (nx + 1) / 2;
-            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
-            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
-            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
-            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
-            ylabel 'Cell density';
-            yyaxis right; hold off
-            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
-            xlabel 'Distance from center'
-        drawnow
+
     end
-    figname = "change2_"+ string(taskID) + strjoin(string(initialRatio), "");
-    saveas(gcf, figname, 'jpg');
-    %save density profiles to a csv file for potential analysis. 
-    C_profiles = [C{1}(mid:end,mid) C{2}(mid:end,mid) C{3}(mid:end,mid)];
-    writematrix(C_profiles, "densities_" + figname + ".csv");
+%Plot each species
+ind = 1 : 2 : nx;
+for j = 1:3
+subplot(2, 3, j)
+    hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
+    shading interp; axis equal;
+    axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+    colorbar
+    set(gca,'YTick',[], 'XTick',[])
+    plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+    title(speciesName{j})
+    drawnow
+end
+%Plot all species & save.
+Ctotal = C{1} + C{2} + C{3};
+p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+ind = 1 : 2 : nx;
+color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+subplot(2, 3, 4) % total cell density
+    hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
+    shading interp; axis equal;
+    axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+    colorbar
+    set(gca,'YTick',[], 'XTick',[])
+    plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+    title(['Time = ' num2str(i * dt)])
+subplot(2, 3, 5) % show each species by color
+    ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+    hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+    view([0, 0, 1]); shading interp; axis equal; box on
+    axis([-L/2 L/2 -L/2 L/2]);
+    set(gca,'YTick',[], 'XTick',[])
+    title(['Time = ' num2str(i * dt)])
+subplot(2, 3, 6) % line graph of cell densities
+    yyaxis left; hold off
+    mid = (nx + 1) / 2;
+    plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+    plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+    plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
+    plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
+    ylabel 'Cell density';
+    yyaxis right; hold off
+    plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
+    xlabel 'Distance from center'
+drawnow
+saveas(gca,  "1_" + filename);
+
+% save results
+figure(2); clf
+Ctotal = C{1} + C{2} + C{3};
+p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+ind = 1 : 2 : nx;
+color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+view([0, 0, 1]); shading interp; axis equal; box on
+axis([-L/2 L/2 -L/2 L/2]);
+set(gca,'YTick',[], 'XTick',[])
+saveas(gca,  "2_" + filename);
+
+%     saveas(gcf, figname, 'jpg');
+%     %save density profiles to a csv file for potential analysis.
+%     C_profiles = [C{1}(mid:end,mid) C{2}(mid:end,mid) C{3}(mid:end,mid)];
+%     writematrix(C_profiles, "densities_" + figname + ".csv");
 end

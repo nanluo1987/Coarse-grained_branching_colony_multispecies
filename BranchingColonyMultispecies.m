@@ -2,9 +2,9 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 4;    % total time
+totalt = 16;    % total time
 dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
+nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
@@ -12,18 +12,15 @@ speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 initialRatio = [1, 1, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.1, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*10;                 % swimming motility
-ce = 1;                         % cheater efficiency (frac of others)
-h1s = 22 *[1 ce 1]*2;             % swarming motility coefficient of WT
-h3s = 20 *[1 ce 1]*2;             % swarming motility coefficient of hyperswarmer
+bN = 25;             % nutrient consumption rate
+DN = 7;              % nutrient diffusivity
+N0 = 6.6667;         % initial nutrient conc.
 
-bN = 150;   % nutrient consumption rate
-DN = 7;     % nutrient diffusivity
-KN = 1.2;   % half-saturation conc of nutrient-dependent growth
-N0 = 8;     % initial nutrient conc.
-Cmax = 0.2; % cell carrying capacity
-noiseamp = 0; % noise amplitude of branch direction
+aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+gs = 0.4*[1 1 2];                 % swimming motility
+ce = 1;                         % cheater efficiency (frac of others)
+h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
+h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -33,7 +30,13 @@ Widths    = [5, 5, 20];
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
+r0  = 5;     % initial radius
+C0  = 8;   % initial cell density
+
+noiseamp = 0;        % noise amplitude of branch direction
+
 %% Initialization
+
 nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
@@ -45,8 +48,6 @@ P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;                   % Nutrient
 
-r0  = 5;     % initial radius
-C0  = 1.6;   % initial cell density
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
 for j = 1 : 3
@@ -74,7 +75,7 @@ for i = 0 : nt
     % -------------------------------------
     % Nutrient distribution
 
-    fN = N ./ (N + KN) .* (1 - (C{1} + C{2} + C{3}) / Cmax);
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
     dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
@@ -102,7 +103,13 @@ for i = 0 : nt
             branchfract(isinf(branchfract)) = 0;
             dE(k,j) = sum(sum(dBiomass .* sparse(branchfract)));
         end
-
+        
+        % update width and density with time. 
+        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
+        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
+        Density = currFracts * Densities';
+        Width   = currFracts * Widths';
+        
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
 %         currFract = cellfun(@(x) sum(x, 'all'), C);
 %         currFract = cellfun(@(x) sum(x, 'all'), C);
@@ -171,24 +178,6 @@ for i = 0 : nt
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
         end
-        
-%         if j == 2 % check if cheater extends faster than the other two
-%             % each tip's radial distance from the center
-%             TipR = sqrt(Tipx.^2 + Tipy.^2); 
-%             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-%             for k = 1 : nn
-%                 if fastest(k, 1) == 2 % if cheater is the fastest
-%                     % change the tip coordinates to the second fastest
-%                     Tipx(k, 2) = Tipx(k, fastest(k, 2));
-%                     Tipy(k, 2) = Tipy(k, fastest(k, 2));
-%                 end
-%             end
-%         end
-        
-        % Growth stops when approaching edges
-%         ind = TipR > 0.85 * L/2;
-%         Tipx(ind) = Tipx_pre(ind);
-%         Tipy(ind) = Tipy_pre(ind);
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -198,7 +187,7 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo;
@@ -251,11 +240,53 @@ for i = 0 : nt
             plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
             xlabel 'Distance from center'
         drawnow
+        
+        if j == 2
+        % Plot all species
+        Ctotal = C{1} + C{2} + C{3};
+        p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+        p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+        p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+        ind = 1 : 2 : nx;
+        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+        subplot(2, 3, 4) % total cell density
+            hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
+            shading interp; axis equal;
+            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+            colorbar
+            set(gca,'YTick',[], 'XTick',[])
+            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+            title(['Time = ' num2str(i * dt)])
+        subplot(2, 3, 5) % show each species by color
+            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+            hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+            view([0, 0, 1]); shading interp; axis equal; box on
+            axis([-L/2 L/2 -L/2 L/2]);
+            set(gca,'YTick',[], 'XTick',[])
+            title(['Time = ' num2str(i * dt)])
+        subplot(2, 3, 6) % line graph of cell densities
+            yyaxis left; hold off
+            mid = (nx + 1) / 2;
+            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
+            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
+            ylabel 'Cell density';
+            yyaxis right; hold off
+            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
+            xlabel 'Distance from center'
+        drawnow
         end
         
     end
 
-    end  
+    end
     
+    % Growth stops when approaching edges
+%     TipR = sqrt(Tipx.^2 + Tipy.^2);
+%     if max(TipR(:)) > 0.9 * L/2
+%         break
+%     end
+
 
 end
