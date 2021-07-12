@@ -1,12 +1,13 @@
 clear
 figure(1)
 
-for iter = 7
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 16;    % total time
 dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
+nx     = 1001; ny = nx; % number of nodes
+
+for iter = 1 : 7
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
@@ -16,9 +17,8 @@ initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 aCs = [1, 1.05, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 2]*3;                 % swimming motility
-h1s = 22 *2;             % swarming motility coefficient of WT
-h3s = 20 *2;             % swarming motility coefficient of hyperswarmer
+gs  = [1, 1, 2] * 6;           % swimming motilities
+hs  = [1.1, 0, 1] * 40;        % swarming motility coefficients
 
 bN = 150;   % nutrient consumption rate
 DN = 7;     % nutrient diffusivity
@@ -106,11 +106,11 @@ for i = 0 : nt
         end
 
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-        currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
-        currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
-        tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
-        tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
-        gammas = gs(j) + h1s * tipFract_wt + h3s * tipFract_hs;
+        tipC = [interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
+                interp2(xx, yy, C{2}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
+                interp2(xx, yy, C{3}, Tipx(1:nn,j), Tipy(1:nn,j))];
+        tipFract = tipC ./ sum(tipC, 2);
+        gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
         dl = gammas .* dE(1:nn,j) ./ Width;
@@ -167,10 +167,13 @@ for i = 0 : nt
             end
         end
         
-        % Growth stops when approaching edges
-%         ind = TipR > 0.85 * L/2;
-%         Tipx(ind) = Tipx_pre(ind);
-%         Tipy(ind) = Tipy_pre(ind);
+        if iter == 1
+            % Growth stops when approaching edges
+            ind = TipR > 0.85 * L/2;
+            Tipx(ind) = Tipx_pre(ind);
+            Tipy(ind) = Tipy_pre(ind);
+            totalt = i * dt; % set totalt as the time when WT reaches the edge
+        end
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -182,7 +185,7 @@ for i = 0 : nt
         % relocate dBiomass
         Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        frac_relo = 0.5;
+        frac_relo = 1;
         C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
         C_pre{j} = C{j};
@@ -256,6 +259,6 @@ hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(in
 view([0, 0, 1]); shading interp; axis equal; box on
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results_localmotility_partialrelo_" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "results\" + strjoin(string(initialRatio), "") + '.jpg')
 
 end

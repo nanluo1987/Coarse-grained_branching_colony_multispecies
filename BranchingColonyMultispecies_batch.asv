@@ -1,12 +1,13 @@
 clear
-
-for iter = 2
 figure(1)
+
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
+nx     = 1001; ny = nx; % number of nodes
+
+for iter = 1 : 7
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
@@ -16,8 +17,8 @@ initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 aCs = [1, 1.05, 1] * 1.5;      % cell growth rate of each species
-gs = 2*[1 1 4]*2;                 % swimming motility
-h1s = 22 *2;             % swarming motility coefficient of WT
+gs = 2*[1 1 2]*3;                 % swimming motility
+hs = 22 *2;             % swarming motility coefficient of WT
 h3s = 20 *2;             % swarming motility coefficient of hyperswarmer
 
 bN = 150;   % nutrient consumption rate
@@ -81,7 +82,7 @@ for i = 0 : nt
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
-    for j = [1, 3, 2]  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
+    for j = 1 : 3  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
 
     % -------------------------------------
     % Cell growth
@@ -106,19 +107,13 @@ for i = 0 : nt
         end
 
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-%         currFract = cellfun(@(x) sum(x, 'all'), C);
-%         currFract = currFract ./ sum(currFract);
-%         gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-%             gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-%             gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
         currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
         currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
-        tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
-        tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
-        gammas = gs(j) + h1s *tipFract_wt+h3s*tipFract_hs;
+        tipC = interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j));
+        tipFract = tipC ./ sum(tipC, 2);
+        gammas = gs(j) + hs .* tipFract;
         
         % extension rate of each branch  
-%         dl = gammas(j) * dE(1:nn,j) ./ Width;
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
@@ -173,23 +168,13 @@ for i = 0 : nt
             end
         end
         
-%         if j == 2 % check if cheater extends faster than the other two
-%             % each tip's radial distance from the center
-%             TipR = sqrt(Tipx.^2 + Tipy.^2); 
-%             [~,fastest] = maxk(TipR,2,2); % the fastest two strain
-%             for k = 1 : nn
-%                 if fastest(k, 1) == 2 % if cheater is the fastest
-%                     % change the tip coordinates to the second fastest
-%                     Tipx(k, 2) = Tipx(k, fastest(k, 2));
-%                     Tipy(k, 2) = Tipy(k, fastest(k, 2));
-%                 end
-%             end
-%         end
-        
-        % Growth stops when approaching edges
-%         ind = TipR > 0.85 * L/2;
-%         Tipx(ind) = Tipx_pre(ind);
-%         Tipy(ind) = Tipy_pre(ind);
+        if iter == 1
+            % Growth stops when approaching edges
+            ind = TipR > 0.85 * L/2;
+            Tipx(ind) = Tipx_pre(ind);
+            Tipy(ind) = Tipy_pre(ind);
+            totalt = i * dt; % set totalt as the time when WT reaches the edge
+        end
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -201,8 +186,9 @@ for i = 0 : nt
         % relocate dBiomass
         Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo;
+        frac_relo = 1;
+        C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
+        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
         C_pre{j} = C{j};
 
         % Plot each species
@@ -261,6 +247,7 @@ for i = 0 : nt
 
 end
 
+% save results
 figure(2); clf
 Ctotal = C{1} + C{2} + C{3};
 p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
@@ -268,12 +255,11 @@ p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
 p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
 ind = 1 : 2 : nx;
 color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-        
 ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
 hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-view([0, 0, 1]); shading interp; axis equal;
+view([0, 0, 1]); shading interp; axis equal; box on
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results\localmotility2_4h_" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "results\" + strjoin(string(initialRatio), "") + '.jpg')
 
 end
