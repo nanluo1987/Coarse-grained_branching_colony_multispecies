@@ -1,29 +1,29 @@
 clear
-figure(1)
 
-for iter = 1 : 7 
+%% Parameters
+L      = 1;    % domain size
+totalt = 12;    % total time
+dt     = 0.02;  % time step
+nx     = 1001; ny = nx; % number of
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
-initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
+
+initialRatio = [1, 0, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-%% Parameters
-L      = 90;    % domain size
-totalt = 12;    % total time
-dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of nodes
-
-bN = 25;             % nutrient consumption rate
-DN = 7;              % nutrient diffusivity
-N0 = 6.6667;         % initial nutrient conc.
-
 aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 0.4*[1 1 2];                 % swimming motility
+gs = 2*[1 1 2];                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
-h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
-h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
+h1s = 22 *[1 ce 1];             % swarming motility coefficient of WT
+h3s = 20 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
+
+bN = 150;   % nutrient consumption rate
+DN = 7;     % nutrient diffusivity
+KN = 1.2;   % half-saturation conc of nutrient-dependent growth
+N0 = 8;     % initial nutrient conc.
+Cmax = 0.2; % cell carrying capacity
+noiseamp = 0; % noise amplitude of branch direction
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -33,12 +33,23 @@ Widths    = [5, 5, 20];
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
-r0  = 5;     % initial radius
-C0  = 8;   % initial cell density
+ud = 90;
+vt = 1;
+N0 = N0 / KN;
+aCs = aCs;
+ps = gs * Cmax;
+q1s = h1s * Cmax;
+q3s = h3s * Cmax;
+b = Cmax*bN/KN;
 
-noiseamp = 0;        % noise amplitude of branch direction
+totalt = totalt * vt;
+dt = dt * vt;
+
+Density = Density * ud;
+Width = Width / ud;
 
 %% Initialization
+
 nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
@@ -49,6 +60,11 @@ rr = sqrt(xx .^ 2 + yy .^ 2);
 P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 ouside colony)
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;                   % Nutrient
+
+r0  = 5;     % initial radius
+C0  = 1.6;   % initial cell density
+r0 = r0 / ud;
+C0 = C0 / Cmax / ud^2;
 
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
@@ -70,7 +86,7 @@ theta = theta(1 : ntips0);  % growth directions of every branch
 theta = theta * ones(1, 3); % one species each column
 delta = linspace(-1, 1, 201) * pi;
 
-[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
+[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN/ud^2); % for solving diffusion equation using ADI method
 
 for i = 0 : nt
 
@@ -78,7 +94,7 @@ for i = 0 : nt
     % Nutrient distribution
 
     fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
-    dN = - fN * bN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
+    dN = - fN * b .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
@@ -92,7 +108,7 @@ for i = 0 : nt
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
+    if mod(i, 0.2*vt/dt) == 0 && initialFract(j) > 0
 
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
 
@@ -109,13 +125,13 @@ for i = 0 : nt
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         currFract = cellfun(@(x) sum(x, 'all'), C);
         currFract = currFract ./ sum(currFract);
-        gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-            gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-            gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
+        gammas = [ps(1)+q1s(1)*currFract(1)+q3s(1)*currFract(3), ...
+            ps(2)+q1s(2)*currFract(1)+q3s(2)*currFract(3), ...
+            ps(3)+q1s(3)*currFract(1)+q3s(3)*currFract(3)];
         
         % extension rate of each branch  
         dl = gammas(j) * dE(1:nn,j) ./ Width;
-        if i == 0; dl = 0.5; end
+        if i == 0; dl = 0.5/ud; end
 
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
@@ -167,6 +183,11 @@ for i = 0 : nt
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
         end
+
+        % Growth stops when approaching edges
+        %         ind = sqrt(Tipx.^2 + Tipy.^2) > 0.85 * L/2;
+        %         Tipx(ind) = Tipx_pre(ind);
+        %         Tipy(ind) = Tipy_pre(ind);
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -233,29 +254,6 @@ for i = 0 : nt
         
     end
 
-    end
-    
-    % Growth stops when approaching edges
-%     TipR = sqrt(Tipx.^2 + Tipy.^2);
-%     if max(TipR(:)) > 0.9 * L/2
-%         break
-%     end
-
-end
-
-% save results
-figure(2); clf
-Ctotal = C{1} + C{2} + C{3};
-p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
-p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
-p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
-ind = 1 : 2 : nx;
-color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-view([0, 0, 1]); shading interp; axis equal; box on
-axis([-L/2 L/2 -L/2 L/2]);
-set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results\" + strjoin(string(initialRatio), "") + '.jpg')
+    end  
 
 end

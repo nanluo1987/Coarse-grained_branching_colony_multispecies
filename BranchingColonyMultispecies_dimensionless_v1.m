@@ -1,17 +1,14 @@
 clear
 figure(1)
 
-for iter = 1 : 7 
-
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
-initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
+initialRatio = [1, 0, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
@@ -22,7 +19,7 @@ N0 = 6.6667;         % initial nutrient conc.
 aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
 gs = 0.4*[1 1 2];                 % swimming motility
 ce = 1;                         % cheater efficiency (frac of others)
-h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
+h1s = 4.4 *[1 ce 1]*2;             % swarming motility coefficient of WT
 h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
 
 % branch density & width of single-species colonies
@@ -236,10 +233,10 @@ for i = 0 : nt
     end
     
     % Growth stops when approaching edges
-%     TipR = sqrt(Tipx.^2 + Tipy.^2);
-%     if max(TipR(:)) > 0.9 * L/2
-%         break
-%     end
+    TipR = sqrt(Tipx.^2 + Tipy.^2);
+    if max(TipR(:)) > 0.9 * L/2
+        break
+    end
 
 end
 
@@ -256,6 +253,4 @@ hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(in
 view([0, 0, 1]); shading interp; axis equal; box on
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results\" + strjoin(string(initialRatio), "") + '.jpg')
-
-end
+saveas(gca, "results\" + 'WT_hsx2_' + num2str(i * dt) + 'h.jpg')
