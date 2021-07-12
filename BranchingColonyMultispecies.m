@@ -2,28 +2,25 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 16;    % total time
 dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
+nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 0, 0];   % initial ratio of all species
+initialRatio = [1, 1, 1];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 2*[1 1 2];                 % swimming motility
-ce = 1;                         % cheater efficiency (frac of others)
-h1s = 22 *[1 ce 1];             % swarming motility coefficient of WT
-h3s = 20 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
+bN = 25;             % nutrient consumption rate
+DN = 7;              % nutrient diffusivity
+N0 = 6.6667;         % initial nutrient conc.
 
-bN = 150;   % nutrient consumption rate
-DN = 7;     % nutrient diffusivity
-KN = 1.2;   % half-saturation conc of nutrient-dependent growth
-N0 = 8;     % initial nutrient conc.
-Cmax = 0.2; % cell carrying capacity
-noiseamp = 0; % noise amplitude of branch direction
+aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+gs = 0.4*[1 1 2];                 % swimming motility
+ce = 1;                         % cheater efficiency (frac of others)
+h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
+h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -32,6 +29,11 @@ Widths    = [5, 5, 20];
 % branch density & width of mixed colonies
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
+
+r0  = 5;     % initial radius
+C0  = 8;   % initial cell density
+
+noiseamp = 0;        % noise amplitude of branch direction
 
 %% Initialization
 
@@ -46,8 +48,6 @@ P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;                   % Nutrient
 
-r0  = 5;     % initial radius
-C0  = 1.6;   % initial cell density
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
 for j = 1 : 3
@@ -75,7 +75,7 @@ for i = 0 : nt
     % -------------------------------------
     % Nutrient distribution
 
-    fN = N ./ (N + KN) .* (1 - (C{1} + C{2} + C{3}) / Cmax);
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
     dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
@@ -103,7 +103,13 @@ for i = 0 : nt
             branchfract(isinf(branchfract)) = 0;
             dE(k,j) = sum(sum(dBiomass .* sparse(branchfract)));
         end
-
+        
+        % update width and density with time. 
+        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
+        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
+        Density = currFracts * Densities';
+        Width   = currFracts * Widths';
+        
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         currFract = cellfun(@(x) sum(x, 'all'), C);
         currFract = currFract ./ sum(currFract);
@@ -166,11 +172,6 @@ for i = 0 : nt
             end
         end
 
-        % Growth stops when approaching edges
-        %         ind = sqrt(Tipx.^2 + Tipy.^2) > 0.85 * L/2;
-        %         Tipx(ind) = Tipx_pre(ind);
-        %         Tipy(ind) = Tipy_pre(ind);
-
         % Fill the width of the branches
         for k = 1 : nn
             d = sqrt((Tipx(k,j) - xx) .^ 2 + (Tipy(k,j) - yy) .^ 2);
@@ -179,7 +180,7 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo;
@@ -236,6 +237,12 @@ for i = 0 : nt
         
     end
 
-    end  
+    end
+    
+    % Growth stops when approaching edges
+%     TipR = sqrt(Tipx.^2 + Tipy.^2);
+%     if max(TipR(:)) > 0.9 * L/2
+%         break
+%     end
 
 end
