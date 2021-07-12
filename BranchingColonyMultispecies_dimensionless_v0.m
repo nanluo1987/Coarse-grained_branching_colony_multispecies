@@ -1,44 +1,44 @@
 clear
 
-%% Parameters
-L      = 90;    % domain size
-totalt = 12;    % total time
-dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
-
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-
 initialRatio = [1, 0, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 2*[1 1 2];                 % swimming motility
-ce = 1;                         % cheater efficiency (frac of others)
-h1s = 22 *[1 ce 1];             % swarming motility coefficient of WT
-h3s = 20 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
+%% Parameters
+totalt = 12;    % total time
+dt     = 0.02;  % time step
+nx     = 1001; ny = nx; % number of nodes
 
-bN = 150;   % nutrient consumption rate
-DN = 7;     % nutrient diffusivity
-KN = 1.2;   % half-saturation conc of nutrient-dependent growth
-N0 = 8;     % initial nutrient conc.
-Cmax = 0.2; % cell carrying capacity
-noiseamp = 0; % noise amplitude of branch direction
+bN = 25;             % nutrient consumption rate
+DN = 8.6420e-04;     % nutrient diffusivity
+N0 = 6.6667;         % initial nutrient conc.
+
+aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+gs = 0.4*[1 1 2];                 % swimming motility
+ce = 1;                         % cheater efficiency (frac of others)
+h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
+h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
 
 % branch density & width of single-species colonies
-Densities = [0.14, 0.14, 0.2];
-Widths    = [5, 5, 20];
+Densities = [0.14, 0.14, 0.2] * 90;
+Widths    = [5, 5, 20] / 90;
 
 % branch density & width of mixed colonies
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
+r0  = 5 / 90;     % initial radius
+C0  = 8 / 90^2;   % initial cell density
+
+noiseamp = 0;        % noise amplitude of branch direction
+
 %% Initialization
 
 nt = totalt / dt;  % number of time steps
-dx = L / (nx - 1); dy = dx;
-x  = linspace(-L/2, L/2, nx);
-y  = linspace(-L/2, L/2, ny);
+dx = 1 / (nx - 1); dy = dx;
+x  = linspace(-1/2, 1/2, nx);
+y  = linspace(-1/2, 1/2, ny);
 [xx, yy] = meshgrid(x, y);
 rr = sqrt(xx .^ 2 + yy .^ 2);
 
@@ -46,8 +46,6 @@ P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;                   % Nutrient
 
-r0  = 5;     % initial radius
-C0  = 1.6;   % initial cell density
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
 for j = 1 : 3
@@ -75,8 +73,8 @@ for i = 0 : nt
     % -------------------------------------
     % Nutrient distribution
 
-    fN = N ./ (N + KN) .* (1 - (C{1} + C{2} + C{3}) / Cmax);
-    dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
+    dN = - fN * bN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
@@ -113,7 +111,7 @@ for i = 0 : nt
         
         % extension rate of each branch  
         dl = gammas(j) * dE(1:nn,j) ./ Width;
-        if i == 0; dl = 0.5; end
+        if i == 0; dl = 0.5/90; end
 
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
@@ -179,7 +177,7 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo;
@@ -190,7 +188,7 @@ for i = 0 : nt
         subplot(2, 3, j)
             hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
             shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+            axis([-1/2 1/2 -1/2 1/2]); colormap('parula'); hold on
             colorbar
             set(gca,'YTick',[], 'XTick',[])
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
@@ -208,7 +206,7 @@ for i = 0 : nt
         subplot(2, 3, 4) % total cell density
             hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
             shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+            axis([-1/2 1/2 -1/2 1/2]); colormap('parula'); hold on
             colorbar
             set(gca,'YTick',[], 'XTick',[])
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
@@ -217,7 +215,7 @@ for i = 0 : nt
             ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
             hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
             view([0, 0, 1]); shading interp; axis equal; box on
-            axis([-L/2 L/2 -L/2 L/2]);
+            axis([-1/2 1/2 -1/2 1/2]);
             set(gca,'YTick',[], 'XTick',[])
             title(['Time = ' num2str(i * dt)])
         subplot(2, 3, 6) % line graph of cell densities
