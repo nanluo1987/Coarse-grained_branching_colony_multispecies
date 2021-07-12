@@ -2,14 +2,14 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
+totalt = 12;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 1, 0];   % initial ratio of all species
+initialRatio = [1, 0, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = 25;             % nutrient consumption rate
@@ -17,10 +17,8 @@ DN = 7;              % nutrient diffusivity
 N0 = 6.6667;         % initial nutrient conc.
 
 aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 0.4*[1 1 2];                 % swimming motility
-ce = 1;                         % cheater efficiency (frac of others)
-h1s = 4.4 *[1 ce 1];             % swarming motility coefficient of WT
-h3s = 4.0 *[1 ce 1];             % swarming motility coefficient of hyperswarmer
+gs = 0.4*[1 1 2];               % swimming motility
+hs = [1.1, 0, 1] * 4;           % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -80,7 +78,7 @@ for i = 0 : nt
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
-    for j = [1, 3, 2]  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
+    for j = 1 : 3  % j: index of species
 
     % -------------------------------------
     % Cell growth
@@ -111,21 +109,15 @@ for i = 0 : nt
         Width   = currFracts * Widths';
         
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-%         currFract = cellfun(@(x) sum(x, 'all'), C);
-%         currFract = cellfun(@(x) sum(x, 'all'), C);
-%         currFract = currFract ./ sum(currFract);
-%         gammas = [gs(1)+h1s(1)*currFract(1)+h3s(1)*currFract(3), ...
-%             gs(2)+h1s(2)*currFract(1)+h3s(2)*currFract(3), ...
-%             gs(3)+h1s(3)*currFract(1)+h3s(3)*currFract(3)];
-        currFract_wt = C{1} ./ (C{1} + C{2} + C{3});
-        currFract_hs = C{3} ./ (C{1} + C{2} + C{3});
-        tipFract_wt = interp2(xx, yy, currFract_wt, Tipx(1:nn,j), Tipy(1:nn,j));
-        tipFract_hs = interp2(xx, yy, currFract_hs, Tipx(1:nn,j), Tipy(1:nn,j));
-        gammas = gs(j)+h1s(j)*tipFract_wt+h3s(j)*tipFract_hs;
+        % calculate the gamma at each branch tip from the local composition
+        tipC = [interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
+                interp2(xx, yy, C{2}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
+                interp2(xx, yy, C{3}, Tipx(1:nn,j), Tipy(1:nn,j))];
+        tipFract = tipC ./ sum(tipC, 2);
+        gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
         dl = gammas .* dE(1:nn,j) ./ Width;
-%         dl = gammas(j) * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         % Bifurcation
@@ -189,8 +181,9 @@ for i = 0 : nt
         % relocate dBiomass
         Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        C_relo = sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo;
+        frac_relo = 1;
+        C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
+        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
         C_pre{j} = C{j};
 
         % Plot each species
@@ -204,42 +197,6 @@ for i = 0 : nt
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
             title(speciesName{j})
             drawnow
-            
-        if j == 2
-        % Plot all species
-        Ctotal = C{1} + C{2} + C{3};
-        p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
-        p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
-        p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
-        ind = 1 : 2 : nx;
-        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-        subplot(2, 3, 4) % total cell density
-            hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
-            shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-            colorbar
-            set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 5) % show each species by color
-            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-            hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-            view([0, 0, 1]); shading interp; axis equal; box on
-            axis([-L/2 L/2 -L/2 L/2]);
-            set(gca,'YTick',[], 'XTick',[])
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 6) % line graph of cell densities
-            yyaxis left; hold off
-            mid = (nx + 1) / 2;
-            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
-            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
-            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
-            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
-            ylabel 'Cell density';
-            yyaxis right; hold off
-            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
-            xlabel 'Distance from center'
-        drawnow
         
         if j == 2
         % Plot all species
@@ -287,6 +244,5 @@ for i = 0 : nt
 %     if max(TipR(:)) > 0.9 * L/2
 %         break
 %     end
-
 
 end

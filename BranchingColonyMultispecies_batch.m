@@ -4,27 +4,23 @@ figure(1)
 for iter = 1 : 7 
 %% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 16;    % total time
 dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of
+nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-
 pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-aCs = [1, 1.05, 1] * 1.5;      % cell growth rate of each species
-gs  = [1, 1, 2] * 6;           % swimming motilities
-hs  = [1.1, 0, 1] * 40;        % swarming motility coefficients
+bN = 25;             % nutrient consumption rate
+DN = 7;              % nutrient diffusivity
+N0 = 6.6667;         % initial nutrient conc.
 
-bN = 150;   % nutrient consumption rate
-DN = 7;     % nutrient diffusivity
-KN = 1.2;   % half-saturation conc of nutrient-dependent growth
-N0 = 8;     % initial nutrient conc.
-Cmax = 0.2; % cell carrying capacity
-noiseamp = 0; % noise amplitude of branch direction
+aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+gs = 0.4*[1 1 2];               % swimming motility
+hs = [1.1, 0, 1] * 4;           % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -34,7 +30,13 @@ Widths    = [5, 5, 20];
 Density = initialFract * Densities';
 Width   = initialFract * Widths';
 
+r0  = 5;     % initial radius
+C0  = 8;   % initial cell density
+
+noiseamp = 0;        % noise amplitude of branch direction
+
 %% Initialization
+
 nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
@@ -46,8 +48,6 @@ P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 
 C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
 N = zeros(nx, ny) + N0;                   % Nutrient
 
-r0  = 5;     % initial radius
-C0  = 1.6;   % initial cell density
 ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
 ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
 for j = 1 : 3
@@ -75,12 +75,12 @@ for i = 0 : nt
     % -------------------------------------
     % Nutrient distribution
 
-    fN = N ./ (N + KN) .* (1 - (C{1} + C{2} + C{3}) / Cmax);
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
     dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
 
-    for j = 1 : 3  % j: index of species (calculate cheater lastly to ensure cheater is not the fastest one)
+    for j = 1 : 3  % j: index of species
 
     % -------------------------------------
     % Cell growth
@@ -90,7 +90,7 @@ for i = 0 : nt
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, 0.1/dt) == 0 && initialFract(j) > 0
+    if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
 
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
 
@@ -103,8 +103,15 @@ for i = 0 : nt
             branchfract(isinf(branchfract)) = 0;
             dE(k,j) = sum(sum(dBiomass .* sparse(branchfract)));
         end
-
+        
+        % update width and density with time. 
+        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
+        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
+        Density = currFracts * Densities';
+        Width   = currFracts * Widths';
+        
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
+        % calculate the gamma at each branch tip from the local composition
         tipC = [interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
                 interp2(xx, yy, C{2}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
                 interp2(xx, yy, C{3}, Tipx(1:nn,j), Tipy(1:nn,j))];
@@ -165,11 +172,6 @@ for i = 0 : nt
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
         end
-        
-        % Growth stops when approaching edges
-%         ind = TipR > 0.85 * L/2;
-%         Tipx(ind) = Tipx_pre(ind);
-%         Tipy(ind) = Tipy_pre(ind);
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -179,7 +181,7 @@ for i = 0 : nt
         end
 
         % relocate dBiomass
-        Capacity = Cmax - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
+        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         frac_relo = 1;
         C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
@@ -197,7 +199,7 @@ for i = 0 : nt
             plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
             title(speciesName{j})
             drawnow
-            
+        
         if j == 2
         % Plot all species
         Ctotal = C{1} + C{2} + C{3};
@@ -237,8 +239,13 @@ for i = 0 : nt
         
     end
 
-    end  
+    end
     
+    % Growth stops when approaching edges
+%     TipR = sqrt(Tipx.^2 + Tipy.^2);
+%     if max(TipR(:)) > 0.9 * L/2
+%         break
+%     end
 
 end
 
