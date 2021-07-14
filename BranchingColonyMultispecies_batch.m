@@ -1,10 +1,11 @@
 clear
-figure(1)
 
-for iter = 1 : 7 
+for iter = 7
+    
+figure(1)
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
+totalt = 12;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
@@ -14,13 +15,13 @@ pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-bN = 25;             % nutrient consumption rate
-DN = 7;              % nutrient diffusivity
-N0 = 6.6667;         % initial nutrient conc.
+bN = 25;   % nutrient consumption rate
+DN = 7;     % nutrient diffusivity
+N0 = 8/1.2*4;     % initial nutrient conc.
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 0.4*[1 1 2];               % swimming motility
-hs = [1.1, 0, 1] * 4;           % swarming motility coefficients
+aCs = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
+gs  = [1, 1, 3] * 1;          % swimming motilities
+hs  = [1, 0, 0.9] * 4;        % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -154,6 +155,7 @@ for i = 0 : nt
         theta(:,j) = thetaNew; dl = dlNew;
         BranchDomain(:,j) = BranchDomainNew;      
         
+        Tipx_pre = Tipx; Tipy_pre = Tipy; 
         % Determine branch extension directions
         if i == 0
             Tipx(1:nn,j) = Tipx(1:nn,j) + dl .* sin(theta(1:nn,j));
@@ -172,6 +174,12 @@ for i = 0 : nt
                 theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
             end
         end
+        
+        % Growth stops when approaching edges
+        TipR = sqrt(Tipx(:,j).^2 + Tipy(:,j).^2);
+        ind = TipR > 0.9 * L/2;
+        Tipx(ind,j) = Tipx_pre(ind,j);
+        Tipy(ind,j) = Tipy_pre(ind,j);
 
         % Fill the width of the branches
         for k = 1 : nn
@@ -262,6 +270,7 @@ hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(in
 view([0, 0, 1]); shading interp; axis equal; box on
 axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[])
-saveas(gca, "results\" + strjoin(string(initialRatio), "") + '.jpg')
+saveas(gca, "results\new_" + strjoin(string(initialRatio), "") + '.jpg')
+% saveas(gca, 'results\' + speciesName{iter}(1) + '.jpg')
 
 end
