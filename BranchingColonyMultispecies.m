@@ -2,23 +2,23 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
+totalt = 12;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 0, 0];   % initial ratio of all species
+initialRatio = [1, 1, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = 25;             % nutrient consumption rate
 DN = 7;              % nutrient diffusivity
-N0 = 8/1.2;         % initial nutrient conc.
+N0 = 8/1.2*4;         % initial nutrient conc.
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
-gs = 0.4*[1 1 2];               % swimming motility
-hs = [1, 0, 0.9] * 4.4;        % swarming motility coefficients
+aCs = [1, 1.1, 1] * 1.5/2;    % cell growth rate of each species
+gs  = [1, 1, 3] * 1;          % swimming motilities
+hs  = [1, 0, 0.9] * 4;        % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -110,10 +110,14 @@ for i = 0 : nt
         
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         % calculate the gamma at each branch tip from the local composition
-        tipC = [interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
-                interp2(xx, yy, C{2}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
-                interp2(xx, yy, C{3}, Tipx(1:nn,j), Tipy(1:nn,j))];
-        tipFract = tipC ./ sum(tipC, 2);
+        % (within the circle)
+        tipFract = zeros(k, 3);
+        for k = 1 : nn
+            d = sqrt((Tipx(k,j) - xx) .^ 2 + (Tipy(k,j) - yy) .^ 2);
+            ind = d <= Width/2;
+            tipSum = [sum(sum(C{1}(ind))), sum(sum(C{2}(ind))), sum(sum(C{3}(ind)))];
+            tipFract(k, :) = tipSum / sum(tipSum);
+        end
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
@@ -157,17 +161,39 @@ for i = 0 : nt
             Tipx(1:nn,j) = Tipx(1:nn,j) + dl .* sin(theta(1:nn,j));
             Tipy(1:nn,j) = Tipy(1:nn,j) + dl .* cos(theta(1:nn,j));
         else
-            thetaO = ones(nn, 1) * delta;
-            TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
-            TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
-            NO = interp2(xx, yy, N, TipxO, TipyO);
-            [~, ind] = max(NO, [], 2); % find the direction with maximum nutrient
-            TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
-            TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
-            for k = 1 : nn
-                Tipx(k,j) = TipxO(k, ind(k));
-                Tipy(k,j) = TipyO(k, ind(k));
-                theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
+            if j == 2
+                thetaO = ones(nn, 1) * delta;
+                TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
+                TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
+                NO = interp2(xx, yy, N, TipxO, TipyO);
+                [~, ind] = max(NO, [], 2); % find the direction with maximum nutrient
+                TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
+                TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
+                for k = 1 : nn
+                    Tipx(k,j) = TipxO(k, ind(k));
+                    Tipy(k,j) = TipyO(k, ind(k));
+                    theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
+                end
+            elseif j == 1
+                thetaO = theta(1:nn,j) + linspace(-1/2, 1/2, 101) * pi;
+                TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
+                TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
+                NO = interp2(xx, yy, N, TipxO, TipyO);
+                Tipx(1:nn,j) = Tipx(1:nn,j) + dl .* sin(theta(1:nn,j));
+                Tipy(1:nn,j) = Tipy(1:nn,j) + dl .* cos(theta(1:nn,j));                
+%                 delta2 = linspace(-1/2, 1/2, 101) * pi;
+%                 for k = 1 : nn
+%                     overlapArea = zeros(101,1);
+%                     for idel = 1 : 101
+%                         Tipx_temp = Tipx(k,j) + dl(k) .* sin(delta2(idel));
+%                         Tipy_temp = Tipy(k,j) + dl(k) .* cos(delta2(idel));
+%                         d = sqrt((Tipx_temp - xx) .^ 2 + (Tipy_temp - yy) .^ 2);
+%                         overlapArea(idel) = sum(sum((P{j}(d <= Width/2))));
+%                     end
+%                     [~, imax] = max(overlapArea);
+%                     Tipx(k,j) = Tipx(k,j) + dl(k) .* sin(delta2(imax));
+%                     Tipy(k,j) = Tipy(k,j) + dl(k) .* cos(delta2(imax));
+%                 end
             end
         end
 
@@ -198,7 +224,7 @@ for i = 0 : nt
             title(speciesName{j})
             drawnow
         
-        if j == 2
+        if j == 1 && i > 0
         % Plot all species
         Ctotal = C{1} + C{2} + C{3};
         p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
@@ -222,16 +248,17 @@ for i = 0 : nt
             set(gca,'YTick',[], 'XTick',[])
             title(['Time = ' num2str(i * dt)])
         subplot(2, 3, 6) % line graph of cell densities
-            yyaxis left; hold off
-            mid = (nx + 1) / 2;
-            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
-            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
-            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
-            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
-            ylabel 'Cell density';
-            yyaxis right; hold off
-            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
-            xlabel 'Distance from center'
+%             yyaxis left; hold off
+%             mid = (nx + 1) / 2;
+%             plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+%             plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+%             plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
+%             plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
+%             ylabel 'Cell density';
+%             yyaxis right; hold off
+%             plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
+%             xlabel 'Distance from center'
+            plot(NO')
         drawnow
         end
         

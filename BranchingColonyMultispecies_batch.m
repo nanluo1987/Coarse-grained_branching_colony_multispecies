@@ -258,6 +258,7 @@ for i = 0 : nt
 end
 
 % save results
+% figure('position',[360.0000  198.0000  444.3333  420.0000]);
 figure(2); clf
 Ctotal = C{1} + C{2} + C{3};
 p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
