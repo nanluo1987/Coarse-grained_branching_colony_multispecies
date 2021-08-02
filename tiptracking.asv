@@ -1,0 +1,4 @@
+function [xv2, yv2] = tiptracking(xv1, yv1, xv2, yv2)
+
+% input: coordinates of branch tips of species 1 (& 2
+% 
