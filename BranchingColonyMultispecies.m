@@ -127,6 +127,10 @@ for i = 0 : nt
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
+        jx = j - 1; if jx == 0; jx = 3; end
+        [Tipx{j}, Tipy{j}] = tiptracking(Tipx{jx}, Tipy{jx}, Tipx{j}, Tipy{j}, ...
+            ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
+        
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
         TipxNew = Tipx{j}; TipyNew = Tipy{j};
@@ -139,6 +143,12 @@ for i = 0 : nt
                 nn = nn + 1;
                 TipxNew(nn,:) = Tipx{j}(k,:);
                 TipyNew(nn,:) = Tipy{j}(k,:);
+                for jk = 1 : 3
+                    if jk ~= j && size(Tipx{jk}, 1) < nn
+                        Tipx{jk}(nn,:) = Tipx{jk}(k,:);
+                        Tipy{jk}(nn,:) = Tipy{jk}(k,:);
+                    end
+                end
                 TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
                 TipyNew(nn,ib) = Tipy{j}(k,ib) + dl(k) * cos(theta(k,j) + 0.5 * pi);
                 TipxNew(k,ib) = TipxNew(k,ib) + dl(k) * sin(theta(k,j) - 0.5 * pi);
@@ -159,24 +169,7 @@ for i = 0 : nt
         theta(:,j) = thetaNew; dl = dlNew;
         BranchDomain(:,j) = BranchDomainNew;    
         
-        % Determine branch extension directions
-        if i == 0
-            Tipx{j}(1:nn,ib) = Tipx{j}(1:nn,ib) + dl .* sin(theta(1:nn,j));
-            Tipy{j}(1:nn,ib) = Tipy{j}(1:nn,ib) + dl .* cos(theta(1:nn,j));
-        else
-            thetaO = ones(nn, 1) * delta;
-            TipxO = Tipx{j}(1:nn,ib) + dl .* sin(thetaO);
-            TipyO = Tipy{j}(1:nn,ib) + dl .* cos(thetaO);
-            NO = interp2(xx, yy, N, TipxO, TipyO);
-            [~, ind] = max(NO, [], 2); % find the direction with maximum nutrient
-            TipxO = Tipx{j}(1:nn,ib) + dl .* sin(thetaO);
-            TipyO = Tipy{j}(1:nn,ib) + dl .* cos(thetaO);
-            for k = 1 : nn
-                Tipx{j}(k,ib) = TipxO(k, ind(k));
-                Tipy{j}(k,ib) = TipyO(k, ind(k));
-                theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
-            end
-        end
+        
 
         % Fill the width of the branches
         for k = 1 : nn
