@@ -2,23 +2,23 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 0, 0];   % initial ratio of all species
+initialRatio = [1, 1, 0];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = 25;             % nutrient consumption rate
 DN = 7;              % nutrient diffusivity
 N0 = 8/1.2;         % initial nutrient conc.
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+aCs = [1, 1.2, 1] * 1.5;      % cell growth rate of each species
 gs = 0.4*[1 1 2];               % swimming motility
-hs = [1, 0, 0.9] * 4.4;        % swarming motility coefficients
+hs = [1, 0, 0.9] * 10;        % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -54,11 +54,11 @@ for j = 1 : 3
     C{j}(P{j} == 1) = C0 * initialFract(j) / (sum(P{j}(:)) * dx * dy);
 end
 C_pre = C;
-ntips = [ntips0, ntips0, ntips0];
+ntips = ntips0;
 Tipx = cell(3, 1); % x coordinates of every tip
 Tipy = cell(3, 1); % y coordinates of every tip
-Tipx(:) = {zeros(ntips0, totalt / dt_updatebranch + 1)};
-Tipy(:) = {zeros(ntips0, totalt / dt_updatebranch + 1)};
+Tipx(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
+Tipy(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
 
 dE = zeros(ntips0, 3);
 BranchDomain = cell(ntips0, 3); % the domain covered by each branch
@@ -70,7 +70,6 @@ theta = theta * ones(1, 3); % one species each column
 delta = linspace(-1, 1, 201) * pi;
 
 [MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
-ib = 0;
 
 for i = 0 : nt
 
@@ -94,7 +93,7 @@ for i = 0 : nt
 
     if mod(i, dt_updatebranch / dt) == 0 && initialFract(j) > 0
         
-        ib = ib + 1;
+        ib = i / (dt_updatebranch / dt) + 2;
         Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
         Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
@@ -102,7 +101,7 @@ for i = 0 : nt
         % compute the amount of biomass accumulation in each branch
         BranchDomainSum = cat(3, BranchDomain{:,j});
         BranchDomainSum = sum(BranchDomainSum, 3);
-        nn = ntips(j);
+        nn = ntips;
         for k = 1 : nn
             branchfract = 1 ./ (BranchDomainSum .* BranchDomain{k,j});
             branchfract(isinf(branchfract)) = 0;
@@ -127,9 +126,7 @@ for i = 0 : nt
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
-        jx = j - 1; if jx == 0; jx = 3; end
-        [Tipx{j}, Tipy{j}] = tiptracking(Tipx{jx}, Tipy{jx}, Tipx{j}, Tipy{j}, ...
-            ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
+        [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
         
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
@@ -147,6 +144,7 @@ for i = 0 : nt
                     if jk ~= j && size(Tipx{jk}, 1) < nn
                         Tipx{jk}(nn,:) = Tipx{jk}(k,:);
                         Tipy{jk}(nn,:) = Tipy{jk}(k,:);
+                        BranchDomain{nn,jk} = BranchDomain{k,jk};
                     end
                 end
                 TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
@@ -159,11 +157,10 @@ for i = 0 : nt
                 BranchDomainNew{nn} = BranchDomain{k,j};
             end
         end
-        ntips(j) = nn;
+        ntips = nn;
         if nn > size(Tipx{j}, 1)
             nz = nn - size(Tipx{j}, 1);
             theta = [theta; zeros(nz, 3)];
-            BranchDomain = [BranchDomain; cell(nz, 3)];
         end
         Tipx{j} = TipxNew; Tipy{j} = TipyNew;
         theta(:,j) = thetaNew; dl = dlNew;
