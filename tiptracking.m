@@ -35,8 +35,8 @@ ifllw = L2 + dL <= L1;
 
 if ib == 2
     
-    xv(ilead) = xm2(ilead, 1) + dL .* sin(theta(ilead,j));
-    yv(ilead) = ym2(ilead, 1) + dL .* cos(theta(ilead,j));
+    xv = xm2(:, 1) + dL .* sin(theta(:,j));
+    yv = ym2(:, 1) + dL .* cos(theta(:,j));
     
 else
     
