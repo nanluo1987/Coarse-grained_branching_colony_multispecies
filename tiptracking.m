@@ -74,13 +74,13 @@ else
     idxlinear = sub2ind(size(d1), 1 : size(d1, 1), idx')';
     dL = dL - (cumL1(idxlinear) - L2);
     
-    idx = min(size(d1, 2), idx + 1);
-    idxlinear = sub2ind(size(d1), 1 : size(d1, 1), idx')';
+    idx = min(size(d1, 2) + 1, idx + 1);
+    idxlinear = sub2ind(size(xm1), 1 : size(d1, 1), idx')';
     x0 = xm1(idxlinear);
     y0 = ym1(idxlinear);
     
-    idx = min(size(d1, 2), idx + 1);
-    idxlinear = sub2ind(size(d1), 1 : size(d1, 1), idx')';
+    idx = min(size(d1, 2) + 1, idx + 1);
+    idxlinear = sub2ind(size(xm1), 1 : size(d1, 1), idx')';
     x1 = xm1(idxlinear);
     y1 = ym1(idxlinear);
     

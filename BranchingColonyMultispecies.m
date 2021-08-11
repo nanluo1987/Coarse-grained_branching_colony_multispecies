@@ -9,7 +9,7 @@ nx     = 1001; ny = nx; % number of nodes
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 1, 0];   % initial ratio of all species
+initialRatio = [1, 1, 1];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = 25;             % nutrient consumption rate
