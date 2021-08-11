@@ -2,23 +2,23 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 16;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = [1, 0, 0];   % initial ratio of all species
+initialRatio = [1, 1, 1];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = 25;             % nutrient consumption rate
 DN = 7;              % nutrient diffusivity
 N0 = 8/1.2;         % initial nutrient conc.
 
-aCs = [1, 1.2, 1] * 1.5/2;      % cell growth rate of each species
+aCs = [1, 1.2, 1] * 1.5;      % cell growth rate of each species
 gs = 0.4*[1 1 2];               % swimming motility
-hs = [1, 0, 0.9] * 4.4;        % swarming motility coefficients
+hs = [1, 0, 0.9] * 10;        % swarming motility coefficients
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -32,6 +32,7 @@ r0  = 5;     % initial radius
 C0  = 8;   % initial cell density
 
 noiseamp = 0;        % noise amplitude of branch direction
+dt_updatebranch = 10 * dt;  % time step for updating branch locations
 
 %% Initialization
 
@@ -53,9 +54,11 @@ for j = 1 : 3
     C{j}(P{j} == 1) = C0 * initialFract(j) / (sum(P{j}(:)) * dx * dy);
 end
 C_pre = C;
-ntips = [ntips0, ntips0, ntips0];
-Tipx = zeros(ntips0, 3); % x coordinates of every tip
-Tipy = zeros(ntips0, 3); % y coordinates of every tip
+ntips = ntips0;
+Tipx = cell(3, 1); % x coordinates of every tip
+Tipy = cell(3, 1); % y coordinates of every tip
+Tipx(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
+Tipy(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
 
 dE = zeros(ntips0, 3);
 BranchDomain = cell(ntips0, 3); % the domain covered by each branch
@@ -88,14 +91,17 @@ for i = 0 : nt
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, 0.2/dt) == 0 && initialFract(j) > 0
-
+    if mod(i, dt_updatebranch / dt) == 0 && initialFract(j) > 0
+        
+        ib = i / (dt_updatebranch / dt) + 2;
+        Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
+        Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));
         dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
 
         % compute the amount of biomass accumulation in each branch
         BranchDomainSum = cat(3, BranchDomain{:,j});
         BranchDomainSum = sum(BranchDomainSum, 3);
-        nn = ntips(j);
+        nn = ntips;
         for k = 1 : nn
             branchfract = 1 ./ (BranchDomainSum .* BranchDomain{k,j});
             branchfract(isinf(branchfract)) = 0;
@@ -110,9 +116,9 @@ for i = 0 : nt
         
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         % calculate the gamma at each branch tip from the local composition
-        tipC = [interp2(xx, yy, C{1}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
-                interp2(xx, yy, C{2}, Tipx(1:nn,j), Tipy(1:nn,j)) ...
-                interp2(xx, yy, C{3}, Tipx(1:nn,j), Tipy(1:nn,j))];
+        tipC = [interp2(xx, yy, C{1}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
+                interp2(xx, yy, C{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
+                interp2(xx, yy, C{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
         tipFract = tipC ./ sum(tipC, 2);
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
@@ -120,60 +126,51 @@ for i = 0 : nt
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
+        [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
+        
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
-        TipxNew = Tipx(:,j); TipyNew = Tipy(:,j);
+        TipxNew = Tipx{j}; TipyNew = Tipy{j};
         thetaNew = theta(:,j); dlNew = dl;
         BranchDomainNew = BranchDomain(:,j);
         for k = 1 : nn
-            dist2othertips = sqrt((TipxNew - Tipx(k,j)) .^ 2 + (TipyNew - Tipy(k,j)) .^ 2);
+            dist2othertips = sqrt((TipxNew(:,ib) - Tipx{j}(k,ib)) .^ 2 + (TipyNew(:,ib) - Tipy{j}(k,ib)) .^ 2);
             dist2othertips = sort(dist2othertips);
             if dist2othertips(2) > R
                 nn = nn + 1;
-                TipxNew(nn) = Tipx(k,j) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
-                TipyNew(nn) = Tipy(k,j) + dl(k) * cos(theta(k,j) + 0.5 * pi);
-                TipxNew(k) = TipxNew(k) + dl(k) * sin(theta(k,j) - 0.5 * pi);
-                TipyNew(k) = TipyNew(k) + dl(k) * cos(theta(k,j) - 0.5 * pi);
+                TipxNew(nn,:) = Tipx{j}(k,:);
+                TipyNew(nn,:) = Tipy{j}(k,:);
+                for jk = 1 : 3
+                    if jk ~= j && size(Tipx{jk}, 1) < nn
+                        Tipx{jk}(nn,:) = Tipx{jk}(k,:);
+                        Tipy{jk}(nn,:) = Tipy{jk}(k,:);
+                        BranchDomain{nn,jk} = BranchDomain{k,jk};
+                    end
+                end
+                TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
+                TipyNew(nn,ib) = Tipy{j}(k,ib) + dl(k) * cos(theta(k,j) + 0.5 * pi);
+                TipxNew(k,ib) = TipxNew(k,ib) + dl(k) * sin(theta(k,j) - 0.5 * pi);
+                TipyNew(k,ib) = TipyNew(k,ib) + dl(k) * cos(theta(k,j) - 0.5 * pi);
                 dlNew(nn) = dl(k) / 2;
                 dlNew(k)  = dl(k) / 2;
                 thetaNew(nn) = theta(k,j);
                 BranchDomainNew{nn} = BranchDomain{k,j};
             end
         end
-        ntips(j) = nn;
-        if nn > size(Tipx, 1)
-            nz = nn - size(Tipx, 1);
-            Tipx = [Tipx; zeros(nz, 3)];
-            Tipy = [Tipy; zeros(nz, 3)];
+        ntips = nn;
+        if nn > size(Tipx{j}, 1)
+            nz = nn - size(Tipx{j}, 1);
             theta = [theta; zeros(nz, 3)];
-            BranchDomain = [BranchDomain; cell(nz, 3)];
         end
-        Tipx(:,j) = TipxNew; Tipy(:,j) = TipyNew;
+        Tipx{j} = TipxNew; Tipy{j} = TipyNew;
         theta(:,j) = thetaNew; dl = dlNew;
-        BranchDomain(:,j) = BranchDomainNew;      
+        BranchDomain(:,j) = BranchDomainNew;    
         
-        % Determine branch extension directions
-        if i == 0
-            Tipx(1:nn,j) = Tipx(1:nn,j) + dl .* sin(theta(1:nn,j));
-            Tipy(1:nn,j) = Tipy(1:nn,j) + dl .* cos(theta(1:nn,j));
-        else
-            thetaO = ones(nn, 1) * delta;
-            TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
-            TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
-            NO = interp2(xx, yy, N, TipxO, TipyO);
-            [~, ind] = max(NO, [], 2); % find the direction with maximum nutrient
-            TipxO = Tipx(1:nn,j) + dl .* sin(thetaO);
-            TipyO = Tipy(1:nn,j) + dl .* cos(thetaO);
-            for k = 1 : nn
-                Tipx(k,j) = TipxO(k, ind(k));
-                Tipy(k,j) = TipyO(k, ind(k));
-                theta(k,j) = thetaO(k, ind(k)) + noiseamp * rand;
-            end
-        end
+        
 
         % Fill the width of the branches
         for k = 1 : nn
-            d = sqrt((Tipx(k,j) - xx) .^ 2 + (Tipy(k,j) - yy) .^ 2);
+            d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
             P{j}(d <= Width/2) = 1;
             BranchDomain{k,j} = BranchDomain{k,j} | (d <= Width/2);
         end
@@ -194,7 +191,7 @@ for i = 0 : nt
             axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
             colorbar
             set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+            plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
             title(speciesName{j})
             drawnow
         
@@ -212,7 +209,7 @@ for i = 0 : nt
             axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
             colorbar
             set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx(:,j), Tipy(:,j), '.', 'markersize', 5)
+            plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
             title(['Time = ' num2str(i * dt)])
         subplot(2, 3, 5) % show each species by color
             ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
