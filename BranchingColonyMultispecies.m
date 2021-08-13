@@ -14,11 +14,14 @@ initialFract = initialRatio / sum(initialRatio); % initial fraction of each spec
 
 bN = 25;             % nutrient consumption rate
 DN = 7;              % nutrient diffusivity
-N0 = 8/1.2;         % initial nutrient conc.
+N0 = 20;         % initial nutrient conc.
 
-aCs = [1, 1.2, 1] * 1.5;      % cell growth rate of each species
-gs = 0.4*[1 1 2];               % swimming motility
-hs = [1, 0, 0.9] * 10;        % swarming motility coefficients
+aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
+gs  = [1, 1, 3] * 1;            % swimming motility
+hs_act  = [1, 0, 0.9] * 4;        % swarming motility coefficients
+
+N_upper = 15; % upper bound of nutrient for swarming
+N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.2];
@@ -70,29 +73,35 @@ theta = theta * ones(1, 3); % one species each column
 delta = linspace(-1, 1, 201) * pi;
 
 [MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
+aCs = cell(3, 1);
 
 for i = 0 : nt
-
+    
+    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
+    
+    for j = 1 : 3  % j: index of species
+        
+        % -------------------------------------
+        % Cell growth
+        aCs{j} = aCs_act(j) * ones(nx, ny); % growth rate as a variable of time and location
+        aCs{j}(N > N_upper | N < N_lower) = max(aCs_act); % if nutrient is not within the range grow at full speed
+        C{j} = C{j} + aCs{j} .* fN .* C{j} * dt;
+    
+    end
+    
     % -------------------------------------
     % Nutrient distribution
-
-    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
-    dN = - bN * fN .* (aCs(1) * C{1} + aCs(2) * C{2} + aCs(3) * C{3}); % Nutrient consumption
+    dN = - bN * fN .* (aCs{1} .* C{1} + aCs{2} .* C{2} + aCs{3} .* C{3}); % Nutrient consumption
     N  = N + dN * dt;
     NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
-
-    for j = 1 : 3  % j: index of species
-
-    % -------------------------------------
-    % Cell growth
-
-    C{j} = C{j} + aCs(j) * fN .* C{j} * dt;
 
     % -------------------------------------
     % Cell allocation and branch extension
 
-    if mod(i, dt_updatebranch / dt) == 0 && initialFract(j) > 0
+    if mod(i, dt_updatebranch / dt) == 0
         
+        for j = find(initialFract > 0)
+            
         ib = i / (dt_updatebranch / dt) + 2;
         Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
         Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));
@@ -119,7 +128,10 @@ for i = 0 : nt
         tipC = [interp2(xx, yy, C{1}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
                 interp2(xx, yy, C{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
                 interp2(xx, yy, C{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
+        tipN =  interp2(xx, yy, N, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
         tipFract = tipC ./ sum(tipC, 2);
+        hs = ones(nn, 1) * hs_act;
+        hs(tipN > N_upper | tipN < N_lower, :) = 0; % swarm only when nutrient is within the range
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
@@ -166,8 +178,6 @@ for i = 0 : nt
         theta(:,j) = thetaNew; dl = dlNew;
         BranchDomain(:,j) = BranchDomainNew;    
         
-        
-
         % Fill the width of the branches
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
@@ -195,7 +205,7 @@ for i = 0 : nt
             title(speciesName{j})
             drawnow
         
-        if j == 2
+        if j == find(initialRatio,1,'last')
         % Plot all species
         Ctotal = C{1} + C{2} + C{3};
         p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
@@ -229,10 +239,18 @@ for i = 0 : nt
             yyaxis right; hold off
             plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
             xlabel 'Distance from center'
+            
+%         subplot(2, 3, 2) % total cell density
+%             hold off; pcolor(xx(ind, ind), yy(ind, ind), aCs{1}(ind, ind));
+%             shading interp; axis equal;
+%             axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+%             colorbar
+%         subplot(2, 3, 3) % total cell density
+%             bar(gammas)
         drawnow
         end
         
-    end
+        end
 
     end
     
