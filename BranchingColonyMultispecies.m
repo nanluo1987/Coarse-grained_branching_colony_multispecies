@@ -2,7 +2,7 @@ clear
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 24;    % total time
+totalt = 14;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
@@ -17,14 +17,14 @@ DN = 7;              % nutrient diffusivity
 N0 = 20;         % initial nutrient conc.
 
 aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
-gs  = [1, 1, 3] * 1;            % swimming motility
-hs_act  = [1, 0, 0.9] * 4;        % swarming motility coefficients
+gs  = [1, 1, 2] * 1;            % swimming motility
+hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
 
 N_upper = 15; % upper bound of nutrient for swarming
 N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
-Densities = [0.14, 0.14, 0.2];
+Densities = [0.14, 0.14, 0.25];
 Widths    = [5, 5, 20];
 
 % branch density & width of mixed colonies
@@ -178,6 +178,16 @@ for i = 0 : nt
         theta(:,j) = thetaNew; dl = dlNew;
         BranchDomain(:,j) = BranchDomainNew;    
         
+        idx = abs(Tipx{j}(:, ib)) > L/2 | abs(Tipy{j}(:, ib)) > L/2;
+        Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
+        Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
+        
+%         %     Growth stops when approaching edges
+%         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
+%         idx = TipR > 0.9*L/2;
+%         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
+%         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
+
         % Fill the width of the branches
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
