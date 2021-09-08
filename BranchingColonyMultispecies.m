@@ -137,7 +137,7 @@ for i = 0 : nt
         % extension rate of each branch  
         dl = gammas .* dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
-
+        
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
         
         % Bifurcation
