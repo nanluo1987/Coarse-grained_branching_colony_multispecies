@@ -1,6 +1,6 @@
 clear
 
-for iter = 1 : 7
+for iter = [1 : 7]
     
 figure(1)
 
@@ -13,18 +13,20 @@ nx     = 1001; ny = nx; % number of nodes
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
+% pyramid_initRatios = [0.99 0.01 0; 0.9 0.1 0; 1 1 0];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-prefix = 'bN=30_';
+prefix = 'add_gs0.5_';
 
-bN = 30;         % nutrient consumption rate
+bN = 25;         % nutrient consumption rate
 DN = 7;          % nutrient diffusivity
 N0 = 20;         % initial nutrient conc.
  
-aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
+aCs_act = [1, 1.2, 1] * 0.75;      % cell growth rate of each species
 gs  = [1, 1, 2] * 1;            % swimming motility
 hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
+mu = 0.4;
  
 N_upper = 15; % upper bound of nutrient for swarming
 N_lower = 6; % lower bound of nutrient for swarming
@@ -141,7 +143,8 @@ for i = 0 : nt
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
-        dl = gammas .* dE(1:nn,j) ./ Width;
+%         dl = gammas .* dE(1:nn,j) ./ Width;
+        dl = gammas * 0.06 + mu * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
@@ -210,7 +213,7 @@ for i = 0 : nt
         C_pre{j} = C{j};
 
         % Plot each species
-        if mod(i, 100) == 0
+        if mod(i, 1/dt) == 0
             ind = 1 : 2 : nx;
             subplot(2, 3, j)
                 hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
@@ -266,7 +269,7 @@ for i = 0 : nt
     
 
     
-    if mod(i * dt, 12) == 0 && i > 0
+    if mod(i * dt, totalt) == 0 && i > 0
     % save results
     figure(2); clf
     Ctotal = C{1} + C{2} + C{3};

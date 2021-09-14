@@ -1,13 +1,15 @@
-% taskID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
+taskID = 1;
 filename = [pwd '\mat\' num2str(taskID, '%05d') '.mat'];
+
+if ~exist(filename, 'file')
 
 % reseed the random number generator
 rng('shuffle'); rngState = rng;
 seed = rngState.Seed + uint32(feature('getpid')); rng(seed);
 
 perturbmag = 0.1; % magnitude of perturbation to parameters
-Parameters_origin = [25; 7; 20; 0.75; 1; 8; 1.1; 2; 15; 6];
-Parameters = Parameters_origin .* (1 + perturbmag *(2 * rand(10, 1) - 1)); % perturb each parameter p within the [1-perturbmag, 1+perturbmag]*p range
+Parameters_origin = [25; 7; 20; 0.75; 1; 8; 1.2; 2; 15; 6; 0.4];
+Parameters = Parameters_origin .* (1 + perturbmag *(2 * rand(length(Parameters_origin), 1) - 1)); % perturb each parameter p within the [1-perturbmag, 1+perturbmag]*p range
 if taskID == 1; Parameters = Parameters_origin; end
 
 Output_Biomass = zeros(21, 1);
@@ -15,7 +17,7 @@ Output_Sizes   = zeros(21, 1);
 
 % Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 14;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
@@ -30,11 +32,13 @@ hs_act  = [1, 0, 0.9] * Parameters(6);  % swarming motility coefficients
 N_upper = Parameters(9); % upper bound of nutrient for swarming
 N_lower = Parameters(10); % lower bound of nutrient for swarming
 
-for iter = 1 : 7
+mu = Parameters(11);
+
+for iter = 1 : 9
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
+pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9 0.1 0; 0.99 0.01 0];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
@@ -53,6 +57,7 @@ noiseamp = 0;        % noise amplitude of branch direction
 dt_updatebranch = 10 * dt;  % time step for updating branch locations
 
 % Initialization
+
 nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
 x  = linspace(-L/2, L/2, nx);
@@ -149,7 +154,8 @@ for i = 0 : nt
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
-        dl = gammas .* dE(1:nn,j) ./ Width;
+%         dl = gammas .* dE(1:nn,j) ./ Width;
+        dl = gammas * 0.06 + mu * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
@@ -196,6 +202,12 @@ for i = 0 : nt
         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
         
+%         %     Growth stops when approaching edges
+%         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
+%         idx = TipR > 0.9*L/2;
+%         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
+%         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
+        
         % Fill the width of the branches
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
@@ -233,6 +245,7 @@ end
 
 save(filename, 'Parameters_origin','Parameters','Output_Biomass','Output_Sizes')
 
+end
 
 if mod(taskID, 100) == 0  
     % collect data
@@ -249,5 +262,5 @@ if mod(taskID, 100) == 0
         end
     end
     ncompleted = sum(~isnan(ParametersMat(1,:)));
-    save('output.mat','Parameters_origin','ParametersMat','OutputMat_Biomass','OutputMat_Sizes')
+    save('output.mat','ncompleted','Parameters_origin','ParametersMat','OutputMat_Biomass','OutputMat_Sizes')
 end

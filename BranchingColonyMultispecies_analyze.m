@@ -1,46 +1,35 @@
-taskID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
-filename = [pwd '/mat/' num2str(taskID, '%05d') '.mat'];
+% clear
 
-if ~exist(filename, 'file')
+for iter = [1,3,5,6]
+    
+figure(1)
 
-% reseed the random number generator
-rng('shuffle'); rngState = rng;
-seed = rngState.Seed + uint32(feature('getpid')); rng(seed);
-
-perturbmag = 0.1; % magnitude of perturbation to parameters
-Parameters_origin = [25; 7; 20; 0.75; 1; 8; 1.2; 2; 15; 6; 0.4];
-Parameters = Parameters_origin .* (1 + perturbmag *(2 * rand(10, 1) - 1)); % perturb each parameter p within the [1-perturbmag, 1+perturbmag]*p range
-if taskID == 1; Parameters = Parameters_origin; end
-
-Output_Biomass = zeros(21, 1);
-Output_Sizes   = zeros(21, 1);
-
-% Parameters
+%% Parameters
 L      = 90;    % domain size
-totalt = 12;    % total time
+totalt = 14;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
-bN = Parameters(1);         % nutrient consumption rate
-DN = Parameters(2);          % nutrient diffusivity
-N0 = Parameters(3);         % initial nutrient conc.
-
-aCs_act = [1, Parameters(7), 1] * Parameters(4);  % cell growth rate of each species
-gs  = [1, 1, Parameters(8)] * Parameters(5);        % swimming motility
-hs_act  = [1, 0, 0.9] * Parameters(6);  % swarming motility coefficients
-
-N_upper = Parameters(9); % upper bound of nutrient for swarming
-N_lower = Parameters(10); % lower bound of nutrient for swarming
-
-mu = Parameters(11);
-
-for iter = 1 : 9
-
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9 0.1 0; 0.99 0.01 0];
+pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9, 0.1, 0];
+% pyramid_initRatios = [0.99 0.01 0; 0.9 0.1 0; 1 1 0];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+
+prefix = 'add_aC2=1.2,mu=0.4_';
+
+bN = 25;         % nutrient consumption rate
+DN = 7;          % nutrient diffusivity
+N0 = 20;         % initial nutrient conc.
+ 
+aCs_act = [1, 1.2, 1] * 0.75;      % cell growth rate of each species
+gs  = [1, 1, 2] * 1;            % swimming motility
+hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
+mu = 0.4;
+
+N_upper = 15; % upper bound of nutrient for swarming
+N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.25];
@@ -56,7 +45,7 @@ C0  = 8;   % initial cell density
 noiseamp = 0;        % noise amplitude of branch direction
 dt_updatebranch = 10 * dt;  % time step for updating branch locations
 
-% Initialization
+%% Initialization
 
 nt = totalt / dt;  % number of time steps
 dx = L / (nx - 1); dy = dx;
@@ -222,45 +211,84 @@ for i = 0 : nt
         C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
         C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
         C_pre{j} = C{j};
+
+        % Plot each species
+        if mod(i, 1/dt) == 0
+%             save(['D:\Temp\111_' num2str(i*dt) '{' num2str(j) '}.mat'])
+            ind = 1 : 2 : nx;
+            subplot(2, 3, j)
+                hold off; pcolor(xx(ind, ind), yy(ind, ind), aCs{j}(ind, ind));
+                shading interp; axis equal;
+                axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+                colorbar; caxis([0.6 1])
+                set(gca,'YTick',[], 'XTick',[])
+                plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
+                title(speciesName{j})
+                drawnow
+
+            if j == find(initialRatio,1,'last')
+            % Plot all species
+            Ctotal = C{1} + C{2} + C{3};
+            p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+            p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+            p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+            ind = 1 : 2 : nx;
+            color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+            subplot(2, 3, 4) % total cell density
+                hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
+                shading interp; axis equal;
+                axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+                colorbar
+                set(gca,'YTick',[], 'XTick',[])
+                plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
+                title(['Time = ' num2str(i * dt)])
+            subplot(2, 3, 5) % show each species by color
+                ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+                hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+                view([0, 0, 1]); shading interp; axis equal; box on
+                axis([-L/2 L/2 -L/2 L/2]);
+                set(gca,'YTick',[], 'XTick',[])
+                title(['Time = ' num2str(i * dt)])
+            subplot(2, 3, 6) % line graph of cell densities
+                yyaxis left; hold off
+                mid = (nx + 1) / 2;
+                plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
+                plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
+                plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
+                plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
+                ylabel 'Cell density';
+                yyaxis right; hold off
+                plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
+                xlabel 'Distance from center'
+            drawnow
+            end
+        end
         
         end
 
     end
+    
 
-end
-
-Output_Biomass((iter - 1) * 3 + 1 : iter * 3) = [sum(C{1},'all'); sum(C{2},'all'); sum(C{3},'all')];
-Sizes = zeros(3, 1);
-for j = 1 : 3
-    if ~isempty(rr(C{j} > 0))
-        Sizes(j) = max(rr(C{j} > 0),[],'all');
-    else
-        Sizes(j) = 0;
+    
+    if mod(i * dt, totalt) == 0 && i > 0
+    % save results
+    figure(2); clf
+    Ctotal = C{1} + C{2} + C{3};
+    p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+    p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
+    p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+    ind = 1 : 2 : nx;
+    color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+    ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+    hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+    view([0, 0, 1]); shading interp; axis equal; box on
+    axis([-L/2 L/2 -L/2 L/2]);
+    set(gca,'YTick',[], 'XTick',[])
+    saveas(gca, "results\screen\" + prefix + strjoin(string(initialRatio), "") + '_' + num2str(i * dt) + 'h.jpg')
+    % saveas(gca, 'results\' + speciesName{iter}(1) + '.jpg')
+    figure(1)
     end
-end
-Output_Sizes((iter - 1) * 3 + 1 : iter * 3) = Sizes;
-fprintf('iter = %d\n', iter)
 
 end
 
-save(filename, 'Parameters_origin','Parameters','Output_Biomass','Output_Sizes')
-
-end
-
-if mod(taskID, 100) == 0  
-    % collect data
-    ParametersMat = nan(10, 10000);
-    OutputMat_Biomass = nan(21, 10000);
-    OutputMat_Sizes = nan(21, 10000);
-    for id = 1 : 10000
-        filename = [pwd '/mat/' num2str(id, '%05d') '.mat'];
-        if exist(filename, 'file')
-            load(filename)  
-            ParametersMat(:, id) = Parameters;
-            OutputMat_Biomass(:, id) = Output_Biomass;
-            OutputMat_Sizes(:, id) = Output_Sizes;
-        end
-    end
-    ncompleted = sum(~isnan(ParametersMat(1,:)));
-    save('output.mat','ncompleted','Parameters_origin','ParametersMat','OutputMat_Biomass','OutputMat_Sizes')
 end

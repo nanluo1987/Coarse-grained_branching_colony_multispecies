@@ -1,23 +1,10 @@
-clear
-
-Parameters =   [26.0415;
-                7.0431;
-                19.3016;
-                0.7456;
-                1.0662;
-                8.2160;
-                1.0866;
-                1.9039;
-                14.4969;
-                6.4775];
-            
-initRatios  = [1 0 0; 0.99 0.01 0; 0.9 0.1 0; 0.5 0.5 0; 0.1 0.9 0];
+initRatios  = [0.99 0.01 0; 0.9 0.1 0; 0.5 0.5 0; 0.1 0.9 0];
 initFract   = initRatios(:, 2);
 finalFract  = zeros(length(initRatios), 1);
 BiomassMat  = zeros(length(initRatios), 3);
 prefix = 'WTvsCT_';
 
-for iter = 1 : 5
+for iter = 1 : 4
     
 figure(1)
 
@@ -29,20 +16,24 @@ nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-
+% pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9, 0.1, 0];
+% pyramid_initRatios = [0.99 0.01 0; 0.9 0.1 0; 1 1 0];
 initialRatio = initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-bN = Parameters(1);         % nutrient consumption rate
-DN = Parameters(2);          % nutrient diffusivity
-N0 = Parameters(3);         % initial nutrient conc.
+% prefix = 'add_aC2=1.2,mu=0.4_';
 
-aCs_act = [1, Parameters(7), 1] * Parameters(4);  % cell growth rate of each species
-gs  = [1, 1, Parameters(8)] * Parameters(5);        % swimming motility
-hs_act  = [1, 0, 0.9] * Parameters(6);  % swarming motility coefficients
+bN = 25;         % nutrient consumption rate
+DN = 7;          % nutrient diffusivity
+N0 = 20;         % initial nutrient conc.
+ 
+aCs_act = [1, 1.2, 1] * 0.75;      % cell growth rate of each species
+gs  = [1, 1, 2] * 1;            % swimming motility
+hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
+mu = 0.4;
 
-N_upper = Parameters(9); % upper bound of nutrient for swarming
-N_lower = Parameters(10); % lower bound of nutrient for swarming
+N_upper = 15; % upper bound of nutrient for swarming
+N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.25];
@@ -156,7 +147,8 @@ for i = 0 : nt
         gammas = gs(j) + sum(hs .* tipFract, 2);
         
         % extension rate of each branch  
-        dl = gammas .* dE(1:nn,j) ./ Width;
+%         dl = gammas .* dE(1:nn,j) ./ Width;
+        dl = gammas * 0.06 + mu * dE(1:nn,j) ./ Width;
         if i == 0; dl = 0.5; end
 
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
@@ -203,11 +195,11 @@ for i = 0 : nt
         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
         
-        %     Growth stops when approaching edges
-        TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
-        idx = TipR > 0.9*L/2;
-        Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
-        Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
+%         %     Growth stops when approaching edges
+%         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
+%         idx = TipR > 0.9*L/2;
+%         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
+%         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
         
         % Fill the width of the branches
         for k = 1 : nn
@@ -225,13 +217,14 @@ for i = 0 : nt
         C_pre{j} = C{j};
 
         % Plot each species
-        if mod(i, 100) == 0
+        if mod(i, 1/dt) == 0
+%             save(['D:\Temp\111_' num2str(i*dt) '{' num2str(j) '}.mat'])
             ind = 1 : 2 : nx;
             subplot(2, 3, j)
                 hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
                 shading interp; axis equal;
                 axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-                colorbar
+                colorbar; % caxis([0.6 1])
                 set(gca,'YTick',[], 'XTick',[])
                 plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
                 title(speciesName{j})
@@ -281,7 +274,7 @@ for i = 0 : nt
     
 
     
-    if mod(i * dt, 14) == 0 && i > 0
+    if mod(i * dt, totalt) == 0 && i > 0
     % save results
     figure(2); clf
     Ctotal = C{1} + C{2} + C{3};
@@ -295,7 +288,7 @@ for i = 0 : nt
     view([0, 0, 1]); shading interp; axis equal; box on
     axis([-L/2 L/2 -L/2 L/2]);
     set(gca,'YTick',[], 'XTick',[])
-    saveas(gca, "compete\" + prefix + num2str(initFract(iter)) + '.jpg');
+    saveas(gca, "results\" + prefix + strjoin(string(initialRatio), "") + '_' + num2str(i * dt) + 'h.jpg')
     % saveas(gca, 'results\' + speciesName{iter}(1) + '.jpg')
     figure(1)
     end
@@ -305,4 +298,5 @@ end
 disp(iter)
 finalFract(iter) = sum(C{2}(:)) / (sum(C{2}(:)) + sum(C{1}(:)));
 BiomassMat(iter, :) = [sum(C{1}(:)) sum(C{2}(:)) sum(C{3}(:))];
+
 end
