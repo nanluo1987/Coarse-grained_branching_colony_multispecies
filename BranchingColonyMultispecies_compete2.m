@@ -1,27 +1,19 @@
 clear
 
-% Parameters =   [26.0415;
-%                 7.0431;
-%                 19.3016;
-%                 0.7456;
-%                 1.0662;
-%                 8.2160;
-%                 1.0866;
-%                 1.9039;
-%                 14.4969;
-%                 6.4775];
-
-load([pwd '\screening_cluster\output.mat'],'ParametersMat')
-Parameters = ParametersMat(:, 0513);
-            
 initRatios  = [1 0 0; 0.99 0.01 0; 0.9 0.1 0; 0.5 0.5 0; 0.1 0.9 0];
 initFract   = initRatios(:, 2);
-finalFract  = zeros(length(initRatios), 1);
-BiomassMat  = zeros(length(initRatios), 3);
-prefix = 'WTvsCT_0513_';
+% finalFract  = zeros(length(initRatios), 1);
+% BiomassMat  = zeros(length(initRatios), 3);
+prefix = 'WTvsCT_';
 
-for iter = 1 : 5
-    
+finalFract = zeros(50, 1);
+BiomassMat = zeros(50, 3);
+
+for iter = 1 : 50
+
+load([pwd '\screening_cluster\output.mat'],'ParametersMat')
+Parameters = ParametersMat(:, iter);
+
 figure(1)
 
 %% Parameters
@@ -33,7 +25,7 @@ nx     = 1001; ny = nx; % number of nodes
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
 
-initialRatio = initRatios(iter, :);   % initial ratio of all species
+initialRatio = initRatios(2, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
 bN = Parameters(1);         % nutrient consumption rate
@@ -298,7 +290,7 @@ for i = 0 : nt
     view([0, 0, 1]); shading interp; axis equal; box on
     axis([-L/2 L/2 -L/2 L/2]);
     set(gca,'YTick',[], 'XTick',[])
-    saveas(gca, "compete\" + prefix + num2str(initFract(iter)) + '.jpg');
+    saveas(gca, "compete\" + prefix + num2str(iter) + '.jpg');
     % saveas(gca, 'results\' + speciesName{iter}(1) + '.jpg')
     figure(1)
     end
