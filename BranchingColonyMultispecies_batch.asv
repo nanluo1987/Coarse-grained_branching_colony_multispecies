@@ -21,13 +21,12 @@ prefix = 'bN=30_';
 bN = 30;         % nutrient consumption rate
 DN = 7;          % nutrient diffusivity
 N0 = 20;         % initial nutrient conc.
-
+ 
 aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
 gs  = [1, 1, 2] * 1;            % swimming motility
 hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
-mu = 0.6;
-
-N_upper = 15; % upper bound of nutrient for swarming
+ 
+N_upper = 30; % upper bound of nutrient for swarming
 N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
@@ -150,7 +149,7 @@ for i = 0 : nt
         
         % extension rate of each branch  
         
-        dl = (gs(j) * sum(hs(1:nn,:) .* tipFract(1:nn,:) .* dE(1:nn,:), 2) + mu * dE(1:nn,j))./ Width;
+        dl = (gs(j) * sum(hs(1:nn,:) .* tipFract(1:nn,:) .* dE(1:nn,:), 2) + mu * sumdE(1:nn,j))./ Width;
         if i == 0; dl = 0.5; end
 
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
