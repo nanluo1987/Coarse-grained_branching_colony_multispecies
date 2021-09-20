@@ -20,7 +20,7 @@ initialFract = initialRatio / sum(initialRatio); % initial fraction of each spec
 prefix = 'new_';
 
 bN = 30;         % nutrient consumption rate
-DN = 14;          % nutrient diffusivity
+DN = 7;          % nutrient diffusivity
 N0 = 20;         % initial nutrient conc.
 
 aCs_act = [1, 1.3, 1] * 1.5/2;      % cell growth rate of each species
@@ -29,7 +29,7 @@ hs_act  = [1, 0, 0.9] * 8/2;        % swarming motility coefficients
 mu = 0.6;
 
 N_upper = 15; % upper bound of nutrient for swarming
-N_lower = 10; % lower bound of nutrient for swarming
+N_lower = 6; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.25];
@@ -123,7 +123,7 @@ for i = 0 : nt
                 interp2(xx, yy, C{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
                 interp2(xx, yy, C{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
         tipN =  interp2(xx, yy, N, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
-        hs{j} = hs_act(j) * ones(nx, ny);
+        hs{j} = aCs_act(j) * ones(nx, ny);
         hs{j}(N > N_upper | N < N_lower) = 0; % swarm only when nutrient is within the range
     end
 
@@ -145,9 +145,9 @@ for i = 0 : nt
         
         % extension rate of each branch  
         aCs_tip = interp2(xx, yy, aCs{j}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
-        dl = (gs(j) * 1 + aCs_tip .* sum(dE(1:nn,:), 2))./ Width;
+        dl = (gs(j) * 1 + aCs_tip .* sum(dE(1:nn,j)))./ Width;
         if i == 0; dl = 0.5; end
-        rates(j,:) = [gs(j) * 1, mean(aCs_tip .* sum(dE(1:nn,:), 2))];
+        rates(j,:) = [gs(j) * 0.4, mean(aCs_tip .* sum(dE(1:nn,j)))];
         
         [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
 
@@ -168,6 +168,7 @@ for i = 0 : nt
                         Tipx{jk}(nn,:) = Tipx{jk}(k,:);
                         Tipy{jk}(nn,:) = Tipy{jk}(k,:);
                         BranchDomain{nn,jk} = BranchDomain{k,jk};
+                        hs(nn, :) = hs(k, :);
                     end
                 end
                 TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
