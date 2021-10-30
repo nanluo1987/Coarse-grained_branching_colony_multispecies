@@ -7,7 +7,7 @@ figure(1)
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 14;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
@@ -170,10 +170,10 @@ for i = 0 : nt
                         BranchDomain{nn,jk} = BranchDomain{k,jk};
                     end
                 end
-                TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
-                TipyNew(nn,ib) = Tipy{j}(k,ib) + dl(k) * cos(theta(k,j) + 0.5 * pi);
-                TipxNew(k,ib) = TipxNew(k,ib) + dl(k) * sin(theta(k,j) - 0.5 * pi);
-                TipyNew(k,ib) = TipyNew(k,ib) + dl(k) * cos(theta(k,j) - 0.5 * pi);
+                TipxNew(nn,ib) = Tipx{j}(k,ib) + 0.7654*dl(k) * sin(theta(k,j) + 0.625 * pi); % splitting the old tip to two new tips
+                TipyNew(nn,ib) = Tipy{j}(k,ib) + 0.7654*dl(k) * cos(theta(k,j) + 0.625 * pi); % numbers are to ensure extension = dl & separation angle = 90 after splitting
+                TipxNew(k,ib) = TipxNew(k,ib) + 0.7654*dl(k) * sin(theta(k,j) - 0.625 * pi);
+                TipyNew(k,ib) = TipyNew(k,ib) + 0.7654*dl(k) * cos(theta(k,j) - 0.625 * pi);
                 dlNew(nn) = dl(k) / 2;
                 dlNew(k)  = dl(k) / 2;
                 thetaNew(nn) = theta(k,j);
@@ -248,7 +248,7 @@ for i = 0 : nt
 %                 title(['Time = ' num2str(i * dt)])
             subplot(2, 3, 5) % show each species by color
                 ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-                hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+                hold off; surf(xx(ind, ind), yy(ind, ind), -ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
                 view([0, 0, 1]); shading interp; axis equal; box on
                 axis([-L/2 L/2 -L/2 L/2]);
                 set(gca,'YTick',[], 'XTick',[])

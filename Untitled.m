@@ -1,7 +1,7 @@
 
 for jj = 1:3
 
-k = 1;
+k = 3;
 d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
 ind2 = d <= Width/2;
                 
