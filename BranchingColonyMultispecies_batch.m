@@ -1,33 +1,35 @@
 clear
+color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
 
-for iter = 1 : 7
+for iter = 7
     
 figure(1)
 
 %% Parameters
 L      = 90;    % domain size
-totalt = 14;    % total time
+totalt = 24;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
-pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1];
+pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9 0.1 0; 0.99 0.01 0; 0.1 0.9 0];
 initialRatio = pyramid_initRatios(iter, :);   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-prefix = 'bN=30_';
+prefix = 'new_';
 
 bN = 30;         % nutrient consumption rate
-DN = 7;          % nutrient diffusivity
+DN = 14;          % nutrient diffusivity
 N0 = 20;         % initial nutrient conc.
- 
-aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
-gs  = [1, 1, 2] * 1;            % swimming motility
-hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
- 
+
+aCs_act = [1, 1.3, 1] * 1.5/2;      % cell growth rate of each species
+gs  = [1, 1, 2] * 2;            % swimming motility
+hs_act  = [1, 0, 0.9] * 8/2;        % swarming motility coefficients
+mu = 0.6;
+
 N_upper = 15; % upper bound of nutrient for swarming
-N_lower = 6; % lower bound of nutrient for swarming
+N_lower = 10; % lower bound of nutrient for swarming
 
 % branch density & width of single-species colonies
 Densities = [0.14, 0.14, 0.25];
@@ -80,6 +82,8 @@ delta = linspace(-1, 1, 201) * pi;
 
 [MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
 aCs = cell(3, 1);
+hs  = cell(3, 1);
+rates = zeros(3, 2);
 
 for i = 0 : nt
     
@@ -105,47 +109,48 @@ for i = 0 : nt
     % Cell allocation and branch extension
 
     if mod(i, dt_updatebranch / dt) == 0
-        
-        for j = find(initialFract > 0)
-            
+    
+    dBiomass = cell(3, 1);
+    for j = find(initialFract > 0) % get growth of each species
         ib = i / (dt_updatebranch / dt) + 2;
         Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
-        Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));
-        dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
-
-        % compute the amount of biomass accumulation in each branch
-        BranchDomainSum = cat(3, BranchDomain{:,j});
-        BranchDomainSum = sum(BranchDomainSum, 3);
-        nn = ntips;
-        for k = 1 : nn
-            branchfract = 1 ./ (BranchDomainSum .* BranchDomain{k,j});
-            branchfract(isinf(branchfract)) = 0;
-            dE(k,j) = sum(sum(dBiomass .* sparse(branchfract)));
-        end
-        
-        % update width and density with time. 
-        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
-        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
-        Density = currFracts * Densities';
-        Width   = currFracts * Widths';
-        
+        Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));     
+        dBiomass{j} = (C{j} - C_pre{j}) * dx * dy; % total cell growth  
         % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
         % calculate the gamma at each branch tip from the local composition
+        nn = ntips;
         tipC = [interp2(xx, yy, C{1}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
                 interp2(xx, yy, C{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
                 interp2(xx, yy, C{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
         tipN =  interp2(xx, yy, N, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
-        tipFract = tipC ./ sum(tipC, 2);
-        hs = ones(nn, 1) * hs_act;
-        hs(tipN > N_upper | tipN < N_lower, :) = 0; % swarm only when nutrient is within the range
-        gammas = gs(j) + sum(hs .* tipFract, 2);
+        hs{j} = hs_act(j) * ones(nx, ny);
+        hs{j}(N > N_upper | N < N_lower) = 0; % swarm only when nutrient is within the range
+    end
+
+    for j = find(initialFract > 0) % get pattern of each species
+        
+        % update width and density with time
+        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
+        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
+        Density = currFracts * Densities';
+        Width   = currFracts * Widths';      
+        
+        for jj = find(initialFract > 0) % get growth of each species at the tip 
+            for k = 1 : nn
+                d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
+                ind = d <= Width/2;
+                dE(k,jj) = sum(hs{jj} .* dBiomass{jj} .* ind,'all'); % the growth of the jjth species within the kth branch of the jth species
+            end
+        end
         
         % extension rate of each branch  
-        dl = gammas .* dE(1:nn,j) ./ Width;
+        aCs_tip = interp2(xx, yy, aCs{j}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
+        dl = (gs(j) * 1 + aCs_tip .* sum(dE(1:nn,:), 2))./ Width;
         if i == 0; dl = 0.5; end
-
-        [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
+        rates(j,:) = [gs(j) * 1, mean(aCs_tip .* sum(dE(1:nn,:), 2))];
         
+        [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
+
         % Bifurcation
         R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
         TipxNew = Tipx{j}; TipyNew = Tipy{j};
@@ -165,10 +170,10 @@ for i = 0 : nt
                         BranchDomain{nn,jk} = BranchDomain{k,jk};
                     end
                 end
-                TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
-                TipyNew(nn,ib) = Tipy{j}(k,ib) + dl(k) * cos(theta(k,j) + 0.5 * pi);
-                TipxNew(k,ib) = TipxNew(k,ib) + dl(k) * sin(theta(k,j) - 0.5 * pi);
-                TipyNew(k,ib) = TipyNew(k,ib) + dl(k) * cos(theta(k,j) - 0.5 * pi);
+                TipxNew(nn,ib) = Tipx{j}(k,ib) + 0.7654*dl(k) * sin(theta(k,j) + 0.625 * pi); % splitting the old tip to two new tips
+                TipyNew(nn,ib) = Tipy{j}(k,ib) + 0.7654*dl(k) * cos(theta(k,j) + 0.625 * pi); % numbers are to ensure extension = dl & separation angle = 90 after splitting
+                TipxNew(k,ib) = TipxNew(k,ib) + 0.7654*dl(k) * sin(theta(k,j) - 0.625 * pi);
+                TipyNew(k,ib) = TipyNew(k,ib) + 0.7654*dl(k) * cos(theta(k,j) - 0.625 * pi);
                 dlNew(nn) = dl(k) / 2;
                 dlNew(k)  = dl(k) / 2;
                 thetaNew(nn) = theta(k,j);
@@ -183,17 +188,17 @@ for i = 0 : nt
         Tipx{j} = TipxNew; Tipy{j} = TipyNew;
         theta(:,j) = thetaNew; dl = dlNew;
         BranchDomain(:,j) = BranchDomainNew;    
-        
+
         idx = abs(Tipx{j}(:, ib)) > L/2 | abs(Tipy{j}(:, ib)) > L/2;
         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
-        
-%         %     Growth stops when approaching edges
-%         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
-%         idx = TipR > 0.9*L/2;
-%         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
-%         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
-        
+
+    %         %     Growth stops when approaching edges
+    %         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
+    %         idx = TipR > 0.9*L/2;
+    %         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
+    %         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
+
         % Fill the width of the branches
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
@@ -205,12 +210,11 @@ for i = 0 : nt
         Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
         Capacity(P{j} == 0) = 0;   % no capacity outside the colony
         frac_relo = 1;
-        C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
-        C_pre{j} = C{j};
-
+        C_relo = frac_relo * sum(dBiomass{j}(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
+        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass{j} / (dx * dy);
+        
         % Plot each species
-        if mod(i, 100) == 0
+        if mod(i, 10) == 0
             ind = 1 : 2 : nx;
             subplot(2, 3, j)
                 hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
@@ -221,7 +225,7 @@ for i = 0 : nt
                 plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
                 title(speciesName{j})
                 drawnow
-
+                
             if j == find(initialRatio,1,'last')
             % Plot all species
             Ctotal = C{1} + C{2} + C{3};
@@ -229,18 +233,22 @@ for i = 0 : nt
             p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
             p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
             ind = 1 : 2 : nx;
-            color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+            
             subplot(2, 3, 4) % total cell density
-                hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
-                shading interp; axis equal;
-                axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-                colorbar
-                set(gca,'YTick',[], 'XTick',[])
-                plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
-                title(['Time = ' num2str(i * dt)])
+                cla; barhd = bar(1:3, rates,'stacked'); hold on
+                barhd(1).FaceColor = color3/255;
+                barhd(2).FaceColor = color1/255;
+                xticks([1,2,3]); xticklabels({'WT','CT','HS'}); xlim([0,4])
+%                 hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
+%                 shading interp; axis equal;
+%                 axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
+%                 colorbar
+%                 set(gca,'YTick',[], 'XTick',[])
+%                 plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
+%                 title(['Time = ' num2str(i * dt)])
             subplot(2, 3, 5) % show each species by color
                 ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-                hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
+                hold off; surf(xx(ind, ind), yy(ind, ind), -ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
                 view([0, 0, 1]); shading interp; axis equal; box on
                 axis([-L/2 L/2 -L/2 L/2]);
                 set(gca,'YTick',[], 'XTick',[])
@@ -259,16 +267,18 @@ for i = 0 : nt
             drawnow
             end
         end
-        
-        end
+
+    end
+    
+    C_pre = C;
 
     end
     
 
     
-    if mod(i * dt, 12) == 0 && i > 0
+    if mod(i * dt, 14) == 0 && i > 0
     % save results
-    figure(2); clf
+    figure(2); clf; set(gcf,'position',[ 360   227   391   391])
     Ctotal = C{1} + C{2} + C{3};
     p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
     p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
@@ -279,7 +289,7 @@ for i = 0 : nt
     hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
     view([0, 0, 1]); shading interp; axis equal; box on
     axis([-L/2 L/2 -L/2 L/2]);
-    set(gca,'YTick',[], 'XTick',[])
+    set(gca,'YTick',[], 'XTick',[], 'Visible', 'off')
     saveas(gca, "results\" + prefix + strjoin(string(initialRatio), "") + '_' + num2str(i * dt) + 'h.jpg')
     % saveas(gca, 'results\' + speciesName{iter}(1) + '.jpg')
     figure(1)
