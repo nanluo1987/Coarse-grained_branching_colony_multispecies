@@ -86,6 +86,7 @@ selected_sec = selected_pri ...
              & Ratios(5,:) < 0.85 & Ratios(5,:) > 0.6 ... % CT/HS ratio in 3-sp
              & finalFrat_8 > 0.5 ... % Final fration of [0.9 0.1 0]
              & finalFrat_9 > 0.2 & finalFrat_9 < 0.4; ... % Final fration of [0.99 0.01 0]
+             
 
 IDV = find(selected_sec); %IDV = [1, IDV];
 disp(IDV); clf; 
@@ -99,14 +100,19 @@ subplot 915; bar(Ratios(4,[1,IDV])); ylabel 'WT/CT' % WT/CT ratio in 3-sp
 subplot 916; bar(Ratios(5,[1,IDV])); ylabel 'CT/HS'
 subplot 917; bar(finalFrat_8(:,[1,IDV])); ylabel 'Frat 0.1'
 subplot 918; bar(finalFrat_9(:,[1,IDV])); ylabel 'Frat 0.01'
-subplot 919; bar(OutputMat_Sizes(11,[1,IDV])); ylabel 'WT-CT size'
+% subplot 919; bar(OutputMat_Sizes(11,[1,IDV])); ylabel 'WT-CT size'
+subplot 919; bar(sum(OutputMat_Biomass(19:21,[1,IDV]),1)./OutputMat_Biomass(1,[1,IDV])); ylabel 'WT-CT size'
 
 
 %%
-IDV = 73;
+clear; load('output_local_2.mat')
+ParametersMat = ParametersCell{7};
+IDV = 681;
 for ID = IDV(1:end)
     disp(ID)
-    picname = ['results\Local screening 2\refine\7-' num2str(ID,'%05d')];
+    Parameters = ParametersMat(:, ID);
+    Parameters(8) = 2.2;
+    picname = ['results\Local screening 2\refine\7-' num2str(ID,'%05d') '_tune3'];
 %     picname = ['results\Local screening 2\' num2str(IPs(ID)) '-' num2str(IDs(ID),'%05d')];
 %     if ~exist([picname '_01.jpg'], 'file')
     BranchingColonyMultispecies_reprod

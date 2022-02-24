@@ -1,273 +1,183 @@
+%% One ratio
 clear
-
-%% Parameters
-L      = 90;    % domain size
-totalt = 14;    % total time
-dt     = 0.02;  % time step
-nx     = 1001; ny = nx; % number of nodes
-
-speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
-% other vectors will follow the same order
-
 initialRatio = [1, 1, 1];   % initial ratio of all species
 initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
 
-bN = 25;             % nutrient consumption rate
-DN = 7;              % nutrient diffusivity
-N0 = 20;         % initial nutrient conc.
+SetParameters
+BranchingColonyMultispecies_Core
 
-aCs_act = [1, 1.1, 1] * 1.5/2;      % cell growth rate of each species
-gs  = [1, 1, 2] * 1;            % swimming motility
-hs_act  = [1, 0, 0.9] * 8;        % swarming motility coefficients
+%% Multiple ratios & varying N0
+clear; 
 
-N_upper = 15; % upper bound of nutrient for swarming
-N_lower = 6; % lower bound of nutrient for swarming
+initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1]; prefix = 'pyramid_744'; ra = 1; rb = 1;
+% WC_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WC_ratios),1), WC_ratios, zeros(length(WC_ratios),1)]; prefix = 'WC'; ra = 2; rb = 1;
+% CH_ratios = 10.^(linspace(-4, 4, 25))'; initRatios = [zeros(length(CH_ratios),1), CH_ratios, ones(length(CH_ratios),1)]; prefix = 'CH_C0x0.01'; ra = 2; rb = 3;
+% WH_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WH_ratios),1), zeros(length(WH_ratios),1), WH_ratios]; prefix = 'WH'; ra = 3; rb = 1;
+% initRatios = [1 1 1; 1 0.01 0.01; 0.5 0.5 0.01; 0.5 0.01 0.5]; prefix = '3sp'; ra = 1; rb = 1;
+% initRatios = [1 1 1; 1 0.01 0.01]; prefix = '3sp'; ra = 1; rb = 1;
 
-% branch density & width of single-species colonies
-Densities = [0.14, 0.14, 0.25];
-Widths    = [5, 5, 20];
+N0V = 1; 
+% N0V = 1;
+finalRatios_N0 = zeros(size(initRatios, 1), length(N0V));
+% frontNutrient  = cell(3, 1); % #### recording nutrient
 
-% branch density & width of mixed colonies
-Density = initialFract * Densities';
-Width   = initialFract * Widths';
+for iN = 1 : length(N0V)
 
-r0  = 5;     % initial radius
-C0  = 8;   % initial cell density
+fprintf('N0 = %f\n', N0V(iN))
+load 'parameters_local_2_cell7_ID681_tuned2.mat'
+% load 'parameters_local_2_cell6_ID744.mat'
+Parameters(3)  = Parameters(3) * N0V(iN);
+Parameters(10) = Parameters(10) / N0V(iN);
+Parameters(11) = Parameters(11) / N0V(iN);
 
-noiseamp = 0;        % noise amplitude of branch direction
-dt_updatebranch = 10 * dt;  % time step for updating branch locations
+Output_Biomass = zeros(size(initRatios, 1), 3);
+Output_Sizes   = zeros(size(initRatios, 1), 3);
+Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
 
-%% Initialization
-
-nt = totalt / dt;  % number of time steps
-dx = L / (nx - 1); dy = dx;
-x  = linspace(-L/2, L/2, nx);
-y  = linspace(-L/2, L/2, ny);
-[xx, yy] = meshgrid(x, y);
-rr = sqrt(xx .^ 2 + yy .^ 2);
-
-P = cell(3, 1); P(:) = {zeros(nx, ny)};   % Pattern (P = 1 inside colony; P = 0 ouside colony)
-C = cell(3, 1); C(:) = {zeros(nx, ny)};   % Cell density
-N = zeros(nx, ny) + N0;                   % Nutrient
-
-ntips0 = ceil(2 * pi * r0 * Density); % initial branch number
-ntips0 = max(ntips0, 2);  % initial branch number cannot be less than 2
-for j = 1 : 3
-    P{j}(rr <= r0) = 1;
-    C{j}(P{j} == 1) = C0 * initialFract(j) / (sum(P{j}(:)) * dx * dy);
+for iter = 3
+    
+    fprintf('iter = %d\n', iter)
+    initialRatio = initRatios(iter, :);   % initial ratio of all species
+    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    filename = ['results\' prefix '_N' num2str(iN)];
+    SetParameters
+    gs(3) = 1;
+    gs = gs * 2;
+    C0 = 0.8;
+    save([filename '_parameters.mat'])
+        
+    filename = [filename '_' num2str(iter,'%02d')];
+    BranchingColonyMultispecies_Core_new1
+    SaveFigure
+    save([filename '.mat'], 'BiomassV', 'C')
+    % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
+    Output_Biomass(iter, :) = Biomass;
+%     Output_Sizes(iter, :) = Sizes;
+    
+%     LiquidCulture
+%     Output_Biomass_Liq(iter, :) = Biomass;
+%     save([filename '_liq.mat'], 'BiomassV', 'N', 'C')
+    
+    
 end
-C_pre = C;
-ntips = ntips0;
-Tipx = cell(3, 1); % x coordinates of every tip
-Tipy = cell(3, 1); % y coordinates of every tip
-Tipx(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
-Tipy(:) = {zeros(ntips0, totalt / dt_updatebranch + 2)};
 
-dE = zeros(ntips0, 3);
-BranchDomain = cell(ntips0, 3); % the domain covered by each branch
-BranchDomain(:) = {rr <= r0};
+finalRatio = Output_Biomass(:, ra) ./ Output_Biomass(:, rb);
+finalRatios_N0(:, iN) = finalRatio;
+save([filename '_results.mat'], 'initRatios', 'Output_Biomass', 'Output_Sizes', 'Output_Biomass_Liq')
 
-theta = linspace(0, 2 * pi, ntips0 + 1)' + rand * 0;
-theta = theta(1 : ntips0);  % growth directions of every branch
-theta = theta * ones(1, 3); % one species each column
-delta = linspace(-1, 1, 201) * pi;
+end
 
-[MatV1N,MatV2N,MatU1N,MatU2N] = Diffusion(dx,dy,nx,ny,dt,DN); % for solving diffusion equation using ADI method
-aCs = cell(3, 1);
+save(['results\' prefix '_varyN0.mat'], 'N0V', 'finalRatios_N0')
 
-for i = 0 : nt
+%% Multiple cycles (days)
+
+clear; 
+
+ndays = 7;
+initRatios = [1 1e-6 1e-6]; % ; 1 1e-4 1e-4; 1 0.01 0.01; 1 0.01 0; 1 0 0.01; 1 0.01 0; 1 0 0.01];
+addRatios  = [0 0 0]; %       0 0 0;    0 0 0.01; 0 0.01 0];
+prefix = 'evo_'; 
+N0V = [0.8]; 
+dayj = 4; % day # to add the third species
+
+for iN = 1
+
+fprintf('N0 = %f\n', N0V(iN))
+load 'parameters_local_2_cell7_ID681_tuned2.mat'
+Parameters(3)  = Parameters(3) * N0V(iN);
+Parameters(10) = Parameters(10) / N0V(iN);
+Parameters(11) = Parameters(11) / N0V(iN);
+
+Output_Biomass = zeros(size(initRatios, 1), 3);
+Output_Sizes   = zeros(size(initRatios, 1), 3);
+Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
+
+for iter = 1 : size(initRatios, 1)
     
-    fN = N ./ (N + 1) .* (1 - (C{1} + C{2} + C{3}));
+    initialRatio = initRatios(iter, :);   % initial ratio of all species
+    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    SetParameters
+    if iN == 1 && iter == 1; save(['results\' prefix '_' num2str(ndays) 'd_parameters.mat']); end
+    BiomassMultiDays = [];
     
-    for j = 1 : 3  % j: index of species
-        
-        % -------------------------------------
-        % Cell growth
-        aCs{j} = aCs_act(j) * ones(nx, ny); % growth rate as a variable of time and location
-        aCs{j}(N > N_upper | N < N_lower) = max(aCs_act); % if nutrient is not within the range grow at full speed
-        C{j} = C{j} + aCs{j} .* fN .* C{j} * dt;
-    
+    for iday = 1 : ndays
+        BranchingColonyMultispecies_Core
+        filename = ['results\' prefix '_N' num2str(N0V(iN)) '_' num2str(iter,'%02d') '_d' num2str(iday)];
+        SaveFigure
+        BiomassMultiDays = [BiomassMultiDays; BiomassV(1 : end - 1,:)]; 
+        initialRatio = BiomassV(end, :);
+        initialFract = initialRatio / sum(initialRatio);
+        if iday == dayj
+            initialFract = initialFract + addRatios(iter, :); 
+            initialFract = initialFract / sum(initialFract);
+        end
+        fprintf('Day %d\n', iday)
     end
+    BiomassMultiDays = [BiomassMultiDays; BiomassV(end, :)];
     
-    % -------------------------------------
-    % Nutrient distribution
-    dN = - bN * fN .* (aCs{1} .* C{1} + aCs{2} .* C{2} + aCs{3} .* C{3}); % Nutrient consumption
-    N  = N + dN * dt;
-    NV = MatV1N \ (N * MatU1N); N = (MatV2N * NV) / MatU2N; % Nutrient diffusion
-
-    % -------------------------------------
-    % Cell allocation and branch extension
-
-    if mod(i, dt_updatebranch / dt) == 0
-        
-        for j = find(initialFract > 0)
-            
-        ib = i / (dt_updatebranch / dt) + 2;
-        Tipx{j}(:, ib) = Tipx{j}(:, max(1, ib - 1));
-        Tipy{j}(:, ib) = Tipy{j}(:, max(1, ib - 1));
-        dBiomass = (C{j} - C_pre{j}) * dx * dy; % total cell growth
-
-        % compute the amount of biomass accumulation in each branch
-        BranchDomainSum = cat(3, BranchDomain{:,j});
-        BranchDomainSum = sum(BranchDomainSum, 3);
-        nn = ntips;
-        for k = 1 : nn
-            branchfract = 1 ./ (BranchDomainSum .* BranchDomain{k,j});
-            branchfract(isinf(branchfract)) = 0;
-            dE(k,j) = sum(sum(dBiomass .* sparse(branchfract)));
-        end
-        
-        % update width and density with time. 
-        currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
-        currFracts = currFracts ./ sum(currFracts); %single vector, the below is spatial grid. 
-        Density = currFracts * Densities';
-        Width   = currFracts * Widths';
-        
-        % gamma (expansion efficiency) = swimming efficiency + swarming efficiency
-        % calculate the gamma at each branch tip from the local composition
-        tipC = [interp2(xx, yy, C{1}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
-                interp2(xx, yy, C{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
-                interp2(xx, yy, C{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
-        tipN =  interp2(xx, yy, N, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
-        tipFract = tipC ./ sum(tipC, 2);
-        hs = ones(nn, 1) * hs_act;
-        hs(tipN > N_upper | tipN < N_lower, :) = 0; % swarm only when nutrient is within the range
-        gammas = gs(j) + sum(hs .* tipFract, 2);
-        
-        % extension rate of each branch  
-        dl = gammas .* dE(1:nn,j) ./ Width;
-        if i == 0; dl = 0.5; end
-        
-        [Tipx{j}, Tipy{j}] = tiptracking(Tipx, Tipy, ib, dl, theta, delta, nn, xx, yy, N, j, noiseamp);
-        
-        % Bifurcation
-        R = 3/2 / Density;  % a branch will bifurcate if there is no other branch tips within the radius of R
-        TipxNew = Tipx{j}; TipyNew = Tipy{j};
-        thetaNew = theta(:,j); dlNew = dl;
-        BranchDomainNew = BranchDomain(:,j);
-        for k = 1 : nn
-            dist2othertips = sqrt((TipxNew(:,ib) - Tipx{j}(k,ib)) .^ 2 + (TipyNew(:,ib) - Tipy{j}(k,ib)) .^ 2);
-            dist2othertips = sort(dist2othertips);
-            if dist2othertips(2) > R
-                nn = nn + 1;
-                TipxNew(nn,:) = Tipx{j}(k,:);
-                TipyNew(nn,:) = Tipy{j}(k,:);
-                for jk = 1 : 3
-                    if jk ~= j && size(Tipx{jk}, 1) < nn
-                        Tipx{jk}(nn,:) = Tipx{jk}(k,:);
-                        Tipy{jk}(nn,:) = Tipy{jk}(k,:);
-                        BranchDomain{nn,jk} = BranchDomain{k,jk};
-                    end
-                end
-                TipxNew(nn,ib) = Tipx{j}(k,ib) + dl(k) * sin(theta(k,j) + 0.5 * pi); % splitting the old tip to two new tips
-                TipyNew(nn,ib) = Tipy{j}(k,ib) + dl(k) * cos(theta(k,j) + 0.5 * pi);
-                TipxNew(k,ib) = TipxNew(k,ib) + dl(k) * sin(theta(k,j) - 0.5 * pi);
-                TipyNew(k,ib) = TipyNew(k,ib) + dl(k) * cos(theta(k,j) - 0.5 * pi);
-                dlNew(nn) = dl(k) / 2;
-                dlNew(k)  = dl(k) / 2;
-                thetaNew(nn) = theta(k,j);
-                BranchDomainNew{nn} = BranchDomain{k,j};
-            end
-        end
-        ntips = nn;
-        if nn > size(Tipx{j}, 1)
-            nz = nn - size(Tipx{j}, 1);
-            theta = [theta; zeros(nz, 3)];
-        end
-        Tipx{j} = TipxNew; Tipy{j} = TipyNew;
-        theta(:,j) = thetaNew; dl = dlNew;
-        BranchDomain(:,j) = BranchDomainNew;    
-        
-        idx = abs(Tipx{j}(:, ib)) > L/2 | abs(Tipy{j}(:, ib)) > L/2;
-        Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
-        Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
-        
-%         %     Growth stops when approaching edges
-%         TipR = sqrt(Tipx{j}(:,ib).^2 + Tipy{j}(:,ib).^2);
-%         idx = TipR > 0.9*L/2;
-%         Tipx{j}(idx, ib) = Tipx{j}(idx, ib - 1);
-%         Tipy{j}(idx, ib) = Tipy{j}(idx, ib - 1);
-
-        % Fill the width of the branches
-        for k = 1 : nn
-            d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
-            P{j}(d <= Width/2) = 1;
-            BranchDomain{k,j} = BranchDomain{k,j} | (d <= Width/2);
-        end
-
-        % relocate dBiomass
-        Capacity = 1 - C_pre{1} - C_pre{2} - C_pre{3};    % remaining cell capacity
-        Capacity(P{j} == 0) = 0;   % no capacity outside the colony
-        frac_relo = 1;
-        C_relo = frac_relo * sum(dBiomass(:)) / sum(Capacity(:)) * Capacity / (dx * dy);
-        C{j} = C_pre{j} + C_relo + (1 - frac_relo) * dBiomass / (dx * dy);
-        C_pre{j} = C{j};
-
-        % Plot each species
-        ind = 1 : 2 : nx;
-        subplot(2, 3, j)
-            hold off; pcolor(xx(ind, ind), yy(ind, ind), C{j}(ind, ind));
-            shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-            colorbar
-            set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
-            title(speciesName{j})
-            drawnow
-        
-        if j == find(initialRatio,1,'last')
-        % Plot all species
-        Ctotal = C{1} + C{2} + C{3};
-        p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
-        p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
-        p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
-        ind = 1 : 2 : nx;
-        color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
-        subplot(2, 3, 4) % total cell density
-            hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
-            shading interp; axis equal;
-            axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-            colorbar
-            set(gca,'YTick',[], 'XTick',[])
-            plot(Tipx{j}(:,ib), Tipy{j}(:,ib), '.', 'markersize', 5)
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 5) % show each species by color
-            ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
-            hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
-            view([0, 0, 1]); shading interp; axis equal; box on
-            axis([-L/2 L/2 -L/2 L/2]);
-            set(gca,'YTick',[], 'XTick',[])
-            title(['Time = ' num2str(i * dt)])
-        subplot(2, 3, 6) % line graph of cell densities
-            yyaxis left; hold off
-            mid = (nx + 1) / 2;
-            plot(x(mid:end), C{1}(mid:end,mid), '-', 'color', color1/255, 'linewidth', 2); hold on
-            plot(x(mid:end), C{2}(mid:end,mid), '-', 'color', color2/255, 'linewidth', 2);
-            plot(x(mid:end), C{3}(mid:end,mid), '-', 'color', color3/255, 'linewidth', 2);
-            plot(x(mid:end), Ctotal(mid:end,mid), 'k-', 'linewidth', 2)
-            ylabel 'Cell density';
-            yyaxis right; hold off
-            plot(x(mid:end), N(mid:end,mid), '-', 'color', [0.7,0.7,0.7], 'linewidth', 2); ylim([0 N0])
-            xlabel 'Distance from center'
-            
-%         subplot(2, 3, 2) % total cell density
-%             hold off; pcolor(xx(ind, ind), yy(ind, ind), aCs{1}(ind, ind));
-%             shading interp; axis equal;
-%             axis([-L/2 L/2 -L/2 L/2]); colormap('parula'); hold on
-%             colorbar
-%         subplot(2, 3, 3) % total cell density
-%             bar(gammas)
-        drawnow
-        end
-        
-        end
-
-    end
+    save(['results\' prefix '_N' num2str(N0V(iN)) '_' num2str(iter,'%02d') '_' num2str(ndays) 'd.mat'], 'BiomassMultiDays','totalt','dt','ndays')
+    Output_Biomass(iter, :) = Biomass;
+    Output_Sizes(iter, :) = Sizes;
+    fprintf('iter = %d\n', iter)
     
-    % Growth stops when approaching edges
-%     TipR = sqrt(Tipx.^2 + Tipy.^2);
-%     if max(TipR(:)) > 0.9 * L/2
-%         break
-%     end
+end
+
+end
+
+%% Test: HS lower growth rate
+clear; 
+
+pslow = 1;
+% WH_ratios = 0.01; initRatios = [ones(length(WH_ratios),1), zeros(length(WH_ratios),1), WH_ratios]; prefix = 'WH'; ra = 3; rb = 1;
+WC_ratios = 0.01; initRatios = [ones(length(WC_ratios),1), WC_ratios, zeros(length(WC_ratios),1)]; prefix = 'WC'; ra = 2; rb = 1;
+N0V = 1.7; finalRatios_N0 = zeros(size(initRatios, 1), length(N0V));
+
+for ipslow = 1 : length(pslow)
+    
+for iN = 1 : length(N0V)
+
+fprintf('N0 = %f\n', N0V(iN))
+load 'parameters_local_2_cell7_ID681_tuned2.mat'
+Parameters(10) = 0.6;
+Parameters(3)  = Parameters(3) * N0V(iN);
+Parameters(10) = Parameters(10) / N0V(iN);
+Parameters(11) = Parameters(11) / N0V(iN);
+
+Output_Biomass = zeros(size(initRatios, 1), 3);
+Output_Sizes   = zeros(size(initRatios, 1), 3);
+Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
+
+for iter = 1 : size(initRatios, 1)
+    
+    initialRatio = initRatios(iter, :);   % initial ratio of all species
+    initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
+    filename = ['Lower HS growth\' prefix '_N' num2str(iN)];
+    SetParameters
+    aCs_act(3) = pslow(ipslow) * Parameters(4); % ### lower HS growth rate ###
+%     gs(3) = 2.5 * Parameters(5);   
+    save([filename '_parameters.mat'])
+    
+    filename = [filename '_' num2str(iter,'%02d')]; % '_' num2str(pslow(ipslow),'%.2f')];
+    BranchingColonyMultispecies_Core
+    SaveFigure
+    save([filename '.mat'], 'BiomassV', 'C')
+    % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
+    Output_Biomass(iter, :) = Biomass;
+    Output_Sizes(iter, :) = Sizes;
+    
+    LiquidCulture
+    Output_Biomass_Liq(iter, :) = Biomass;
+    save([filename '_liq.mat'], 'BiomassV', 'N', 'C')
+    fprintf('iter = %d\n', iter)
+    
+end
+
+finalRatio = Output_Biomass(:, ra) ./ Output_Biomass(:, rb);
+finalRatios_N0(:, iN) = finalRatio;
+save([filename '_results.mat'], 'initRatios', 'Output_Biomass', 'Output_Sizes', 'Output_Biomass_Liq')
+
+end
+
+save(['Lower HS growth\' prefix '_varyN0_upper0.6.mat'], 'N0V', 'finalRatios_N0')
 
 end

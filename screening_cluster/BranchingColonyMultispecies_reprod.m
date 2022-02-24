@@ -1,15 +1,4 @@
-% ID = 9351; 
-% ID = 2;
-Parameters = ParametersMat(:, ID);
-% Parameters(8) = 1.5;
-% Parameters =    [26; 7; 19.3016;
-%     0.7456;
-%     1.0662;
-%     8.2160;
-%     1.0866;
-%     1.9039;
-%    14.4969;
-%     6.4775];
+
 pyramid_initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1; 0.9 0.1 0; 0.99 0.01 0; 0.1 0.9 0];
 WC_ratios = [0.001,0.01,0.1,10]';
 WH_ratios = [0.001,0.01,0.1,10]';
@@ -25,7 +14,7 @@ totalt = 16;    % total time
 dt     = 0.02;  % time step
 nx     = 1001; ny = nx; % number of nodes
 
-for iN = [1.5]
+for iter = 1 : 7
     
 bN = Parameters(1);         % nutrient consumption rate
 DN = Parameters(2);          % nutrient diffusivity
@@ -39,9 +28,8 @@ N_upper = Parameters(10) * N0; % upper bound of nutrient for swarming
 N_lower = N_upper - Parameters(11) * N0; % lower bound of nutrient for swarming
 
 % for iter = 1 : length(pyramid_initRatios)
-iter = 11;
 
-N0 = N0 * iN;
+% N0 = N0 * iN;
     
 speciesName = {'WT','Cheater','Hyperswarmer'}; % name of each species
 % other vectors will follow the same order
@@ -317,7 +305,8 @@ axis([-L/2 L/2 -L/2 L/2]);
 set(gca,'YTick',[], 'XTick',[], 'Visible', 'off')
 saveas(gca, [picname '_' num2str(iter,'%02d') '.jpg'])
 figure(1)
-save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
+% save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
+save([picname '_' num2str(iter,'%02d') '.mat'])
 end
 
 end
