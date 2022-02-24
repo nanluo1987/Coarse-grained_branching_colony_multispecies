@@ -47,7 +47,7 @@ for iter = 3
     save([filename '_parameters.mat'])
         
     filename = [filename '_' num2str(iter,'%02d')];
-    BranchingColonyMultispecies_Core_new1
+    BranchingColonyMultispecies_Core
     SaveFigure
     save([filename '.mat'], 'BiomassV', 'C')
     % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])

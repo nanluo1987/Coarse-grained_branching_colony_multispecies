@@ -26,7 +26,7 @@ ntips = max(ntips, 2);  % initial branch number cannot be less than 2
 Tipx = cell(3, 1); Tipx(:) = {zeros(ntips, totalt / dt_updatebranch + 2)};
 Tipy = cell(3, 1); Tipy(:) = {zeros(ntips, totalt / dt_updatebranch + 2)};
 
-surfactant = zeros(ntips, 3); % swarming motility contributed by each branch of each species
+swarmingMot = zeros(ntips, 3); % swarming motility contributed by each branch of each species
 
 theta = linspace(0, 2 * pi, ntips + 1)' + rand * 0;
 theta = theta(1 : ntips) * ones(1, 3);  % growth directions of each branch of each species
@@ -89,32 +89,24 @@ for i = 0 : nt
         currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
         currFracts = currFracts ./ sum(currFracts); 
         branchDensity = currFracts * Densities';
-        branchWidth   = currFracts * Widths';  
-        
-        % branch width cannot be larger than the inoculum
-        maxbranchWidth = sqrt(Tipx{j}(:,ib) .^ 2 + Tipy{j}(:,ib) .^ 2) + r0;
-        branchWidth = min(max(maxbranchWidth), branchWidth);
+        branchWidth   = currFracts * Widths';      
         
         % get swarming motility contributed by each branch of each species
         nn = ntips;
-        allGrowth = zeros(nx, ny);
-        selfGrowth = zeros(nn, 1);
+        temp = zeros(nx, ny);
         for jj = find(initialFract > 0) 
-            allGrowth = allGrowth + hs{jj} .* cellGrowth{jj};
+            temp = temp + hs{jj} .* cellGrowth{jj};
         end
         for k = 1 : nn
             d = sqrt((Tipx{j}(k,ib) - xx) .^ 2 + (Tipy{j}(k,ib) - yy) .^ 2);
             ind = d <= branchWidth/2; % the tip of the kth branch of the jth species
-            surfactant(k,jj) = sum(allGrowth .* ind, 'all'); 
+            swarmingMot(k,jj) = sum(temp .* ind,'all'); 
             % swarming motility contributed by the jjth species within the kth branch of the jth species
-            selfGrowth(k, 1) = 0.1 * sum(cellGrowth{j} .* ind, 'all');
-        end        
+        end
 
         % extension rate of each branch  
         aCs_tip = interp2(xx, yy, aCs{j}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)); % actual growth rate at each branch tip
-        dl = (gs(j) + selfGrowth) .* sum(surfactant(1:nn,:), 2)./ branchWidth;
-        fprintf('i=%d j=%d   %.1f = (%.1f + %.1f) * %.1f / %.1f\n', ...
-            i, j, mean(dl), gs(j), mean(selfGrowth), mean(sum(surfactant(1:nn,:), 2)), branchWidth)
+        dl = (gs(j) + aCs_tip .* sum(swarmingMot(1:nn,:), 2))./ branchWidth;
         if i == 0; dl = 0.5; end
         
         % make slower species follow faster species
