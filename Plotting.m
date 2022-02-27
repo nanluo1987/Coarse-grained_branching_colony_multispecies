@@ -1,4 +1,4 @@
-if mod(i, 10) == 0
+if mod(i, 50) == 0
     ind = 1 : 2 : nx;
     
     figure(1)

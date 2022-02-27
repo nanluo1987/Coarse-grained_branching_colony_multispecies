@@ -34,7 +34,7 @@ Output_Biomass = zeros(size(initRatios, 1), 3);
 Output_Sizes   = zeros(size(initRatios, 1), 3);
 Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
 
-for iter = 3
+for iter = 6
     
     fprintf('iter = %d\n', iter)
     initialRatio = initRatios(iter, :);   % initial ratio of all species
@@ -44,6 +44,7 @@ for iter = 3
     gs(3) = 1;
     gs = gs * 2;
     C0 = 0.8;
+    mu = 1;
     save([filename '_parameters.mat'])
         
     filename = [filename '_' num2str(iter,'%02d')];

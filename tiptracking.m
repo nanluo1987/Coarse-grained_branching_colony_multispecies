@@ -31,7 +31,7 @@ L2 = sum(d2, 2);
 
 % ind_leader = L2 >= 0;
 ilead = L2 + dL  > L1;
-ifllw = L2 + dL <= L1;
+ifllw = ~ilead;
 
 if ib == 2
     
@@ -71,6 +71,7 @@ else
   % follow the trajectory of species 1
     cumL1 = cumsum(d1, 2);
     idx = sum(cumL1 < (L2 + dL) * ones(1, size(cumL1, 2)), 2);
+    idx(idx == 0) = 1;
     idxlinear = sub2ind(size(d1), 1 : size(d1, 1), idx')';
     dL = dL - (cumL1(idxlinear) - L2);
     
@@ -85,6 +86,7 @@ else
     y1 = ym1(idxlinear);
     
     dx = sqrt((x1 - x0) .^ 2 + (y1 - y0) .^ 2);
+    dx(dx == 0) = 1;
     xv(ifllw) = (x1(ifllw) - x0(ifllw)) .* dL(ifllw) ./ dx(ifllw) + x0(ifllw);
     yv(ifllw) = (y1(ifllw) - y0(ifllw)) .* dL(ifllw) ./ dx(ifllw) + y0(ifllw);
 

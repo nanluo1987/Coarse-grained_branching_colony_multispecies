@@ -85,6 +85,9 @@ for i = 0 : nt
 
     for j = find(initialFract > 0)
         
+        if i == 350
+            i
+        end
         % update width and density with time
         currFracts = [sum(C{1}, 'all') sum(C{2}, 'all') sum(C{3}, 'all')];
         currFracts = currFracts ./ sum(currFracts); 
@@ -107,7 +110,7 @@ for i = 0 : nt
             ind = d <= branchWidth/2; % the tip of the kth branch of the jth species
             surfactant(k,jj) = sum(allGrowth .* ind, 'all'); 
             % swarming motility contributed by the jjth species within the kth branch of the jth species
-            selfGrowth(k, 1) = 0.1 * sum(cellGrowth{j} .* ind, 'all');
+            selfGrowth(k, 1) = mu * sum(cellGrowth{j} .* ind, 'all');
         end        
 
         % extension rate of each branch  
