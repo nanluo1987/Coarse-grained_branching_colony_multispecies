@@ -9,9 +9,9 @@ BranchingColonyMultispecies_Core
 %% Multiple ratios & varying N0
 clear; 
 
-initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1]; prefix = 'pyramid_744'; ra = 1; rb = 1;
+% initRatios = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 1; 1 1 1]; prefix = 'pyramid_744';
 % WC_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WC_ratios),1), WC_ratios, zeros(length(WC_ratios),1)]; prefix = 'WC'; ra = 2; rb = 1;
-% CH_ratios = 10.^(linspace(-4, 4, 25))'; initRatios = [zeros(length(CH_ratios),1), CH_ratios, ones(length(CH_ratios),1)]; prefix = 'CH_C0x0.01'; ra = 2; rb = 3;
+CH_ratios = 10.^(linspace(-4, 4, 25))'; initRatios = [zeros(length(CH_ratios),1), CH_ratios, ones(length(CH_ratios),1)]; prefix = 'CH_C0x0.01'; ra = 2; rb = 3;
 % WH_ratios = 10.^(linspace(-3,1,41))'; initRatios = [ones(length(WH_ratios),1), zeros(length(WH_ratios),1), WH_ratios]; prefix = 'WH'; ra = 3; rb = 1;
 % initRatios = [1 1 1; 1 0.01 0.01; 0.5 0.5 0.01; 0.5 0.01 0.5]; prefix = '3sp'; ra = 1; rb = 1;
 % initRatios = [1 1 1; 1 0.01 0.01]; prefix = '3sp'; ra = 1; rb = 1;
@@ -34,20 +34,20 @@ Output_Biomass = zeros(size(initRatios, 1), 3);
 Output_Sizes   = zeros(size(initRatios, 1), 3);
 Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
 
-for iter = 3
+for iter = 10
     
     fprintf('iter = %d\n', iter)
     initialRatio = initRatios(iter, :);   % initial ratio of all species
     initialFract = initialRatio / sum(initialRatio); % initial fraction of each species
     filename = ['results\' prefix '_N' num2str(iN)];
     SetParameters
-    gs(3) = 1;
-    gs = gs * 2;
     C0 = 0.8;
     save([filename '_parameters.mat'])
-        
+    
+%     idxN = 1; for j = 1 : 3; frontNutrient{j}(iN, idxN) = N0; end % #### recording nutrient
+    
     filename = [filename '_' num2str(iter,'%02d')];
-    BranchingColonyMultispecies_Core_new1
+    BranchingColonyMultispecies_Core_backup
     SaveFigure
     save([filename '.mat'], 'BiomassV', 'C')
     % save([picname '_' num2str(iter,'%02d') '_' num2str(iN) '.mat'])
