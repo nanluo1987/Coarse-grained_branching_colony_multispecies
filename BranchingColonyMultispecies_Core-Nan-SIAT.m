@@ -95,9 +95,10 @@ for i = 0 : nt
 %         branchDensity = currFracts * Densities';
 %         branchWidth   = currFracts * Widths';      
         nn = ntips;
-        tipFracts = [interp2(xx, yy, localFracts{1}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
-                     interp2(xx, yy, localFracts{2}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib)) ...
-                     interp2(xx, yy, localFracts{3}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib))];
+        tipFracts = zeros(nn, 3);
+        for jj = find(initialFract > 0) 
+        tipFracts(:, jj) = interp2(xx, yy, localFracts{jj}, Tipx{j}(1:nn,ib), Tipy{j}(1:nn,ib));
+        end
         branchDensity = tipFracts * Densities';
         branchWidth   = tipFracts * Widths';
         

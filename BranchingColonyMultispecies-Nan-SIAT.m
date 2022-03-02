@@ -34,7 +34,7 @@ Output_Biomass = zeros(size(initRatios, 1), 3);
 Output_Sizes   = zeros(size(initRatios, 1), 3);
 Output_Biomass_Liq = zeros(size(initRatios, 1), 3);
 
-for iter = 7
+for iter = 1:7
     
     fprintf('iter = %d\n', iter)
     initialRatio = initRatios(iter, :);   % initial ratio of all species

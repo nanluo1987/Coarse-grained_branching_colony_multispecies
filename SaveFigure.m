@@ -1,6 +1,6 @@
 
-Ctotal = C{1} + C{2} + C{3};
-p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+Ctotal = 5*C{1} + C{2} + C{3};
+p1 = 5*C{1}./Ctotal; p1(isnan(p1)) = 0;
 p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
 p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
 ind = 1 : 2 : nx;

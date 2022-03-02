@@ -17,12 +17,14 @@ if mod(i, 10) == 0
     % Plot all species
     if j == find(initialRatio,1,'last')
 
-    Ctotal = C{1} + C{2} + C{3};
-    p1 = C{1}./Ctotal; p1(isnan(p1)) = 0;
+    Ctotal = 5*C{1} + C{2} + C{3};
+    p1 = 5*C{1}./Ctotal; p1(isnan(p1)) = 0; 
     p2 = C{2}./Ctotal; p2(isnan(p2)) = 0;
     p3 = C{3}./Ctotal; p3(isnan(p3)) = 0;
+    
     ind = 1 : 2 : nx;
-    color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+%     color1 = [199,61,120]; color2 = [255,192,0]; color3 = [52,117,166];
+    color1 = [251,69,199]; color2 = [255,255,0]; color3 = [17,207,226];
     subplot(2, 3, 4) % total cell density
 %         hold off; pcolor(xx(ind, ind), yy(ind, ind), Ctotal(ind, ind));
 %         shading interp; axis equal;
@@ -33,6 +35,7 @@ if mod(i, 10) == 0
 %         title(['Time = ' num2str(i * dt)])
     subplot(2, 3, 5) % show each species by color
         ColorMap = MarkMixing_3color(color1, color2, color3, p1, p2, p3);
+        ColorMap(isnan(ColorMap)) = 0;
         hold off; surf(xx(ind, ind), yy(ind, ind), ones(size(xx(ind, ind))), ColorMap(ind, ind, :))
         view([0, 0, 1]); shading interp; axis equal; box on
         axis([-L/2 L/2 -L/2 L/2]);
